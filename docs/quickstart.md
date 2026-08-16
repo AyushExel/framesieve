@@ -11,10 +11,12 @@ pip install torch --index-url https://download.pytorch.org/whl/cu128   # your CU
 pip install framesieve
 ```
 
-No GPU is fine. Everything picks CUDA if there is one, Apple silicon if there is
-one, and CPU otherwise; on CPU, indexing an hour of video takes a minute or two
-instead of fifteen seconds, and search is the same either way. Only the
-`--confirm` stage really wants a GPU, because that is a 7B model.
+**No GPU required.** Everything picks CUDA if there is one, Apple silicon if
+there is one, and CPU otherwise — no flags. On CPU, indexing an hour of video
+takes a minute or two instead of fifteen seconds; search is the same speed
+either way, because it is a matrix multiply against an index that already
+exists. The one part that really wants a GPU is `--confirm`, which runs a 7B
+vision-language model.
 
 You also need `ffmpeg` on your `PATH`, with h.264 support:
 

@@ -29,9 +29,13 @@ framesieve index  my_video.mp4
 framesieve search my_video.mp4 "a red car pulling in"
 ```
 
+**No GPU required.** Indexing an hour of video takes a minute or two on a
+laptop CPU instead of fifteen seconds on a GPU, and searching is the same speed
+either way.
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="figures/at_a_glance.dark.png">
-  <img alt="15 seconds to index an hour of video and 5 MB, measured over 205 hours. 25 milliseconds to search all 4.5 hours. 26 times what sampling every Nth frame finds, at the same 32 model calls." src="figures/at_a_glance.light.png">
+  <img alt="15 seconds to index an hour of video and 5 MB, measured over 205 hours. 25 milliseconds to search all 4.5 hours, the same with or without a GPU. 26 times what sampling every Nth frame finds, at the same 32 model calls." src="figures/at_a_glance.light.png">
 </picture>
 
 ## Try it
@@ -97,11 +101,11 @@ curve  = video.score("a red car")          # similarity for every frame
 index needs torch; *reading* one does not, so you can ship indexes to machines
 with no GPU and search them there.
 
-### No GPU? Still fine
+### Running on CPU
 
 Everything picks CUDA if there is one, Apple silicon if there is one, and CPU
-otherwise. The retrieval encoder is small, so CPU is a real option rather than a
-fallback:
+otherwise — no flags, no configuration. The retrieval encoder is 93M parameters,
+small enough that CPU is a real option rather than a degraded mode:
 
 | | index 1 hour of video | search |
 |---|---|---|
@@ -109,8 +113,10 @@ fallback:
 | CPU (64 cores) | 1 min | 25 ms |
 | CPU (8 threads) | ~2 min | 25 ms |
 
-Only `confirm=True` really wants a GPU — that is a 7B vision-language model.
-Retrieval alone never needs one.
+Search is the same speed either way, because it is a matrix multiply against an
+index that already exists. The one part that really wants a GPU is
+`confirm=True`, which runs a 7B vision-language model; everything else is
+comfortable without one.
 
 **[Quickstart](docs/quickstart.md)** ·
 **[API reference](docs/api.md)** ·
