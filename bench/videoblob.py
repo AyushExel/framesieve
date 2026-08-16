@@ -42,13 +42,18 @@ import json
 import os
 import re
 import subprocess
+import sys
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 
 import numpy as np
 
-from .frames import probe_source
+# bench/ is not part of the package, so reach the library the same way the
+# other benchmarks here do
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                "..", "src"))
+from framesieve.frames import probe_source  # noqa: E402
 
 _PTS_RE = re.compile(rb"pts_time:\s*([0-9.\-]+)")
 
@@ -270,7 +275,7 @@ class VideoBlobStore:
 
         The TS/source time offset is measured, not assumed, so it gets checked.
         """
-        from .fetch import FrameFetcher
+        from framesieve.fetch import FrameFetcher
 
         rng = np.random.default_rng(seed)
         ts = rng.uniform(2.0, max(3.0, self.meta["duration_s"] - 2.0), size=n)

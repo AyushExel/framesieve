@@ -101,6 +101,60 @@ curve  = video.score("a red car")          # similarity for every frame
 index needs torch; *reading* one does not, so you can ship indexes to machines
 with no GPU and search them there.
 
+### Searching a whole library
+
+One video fits in memory. A corpus does not — at 1 fps a video-hour is 3,600
+vectors, so 10,000 hours is 36 million of them and 55 GB. `Collection` puts them
+in [LanceDB](https://lancedb.com) instead, on disk, with a vector index over
+them:
+
+```python
+lib = fs.Collection("footage.lancedb")
+
+lib.add("cam1.mp4")                      # index and append
+lib.add_indexes("indexes/*.npz")         # or merge sidecars built elsewhere
+lib.build_ann()                          # once, after the bulk load
+
+for hit in lib.search("a red car", k=20):
+    print(hit.video, hit.timecode, hit.score)
+```
+
+Measured on **10 million vectors** — 2,778 video-hours, 62 GB of vectors and
+index on disk:
+
+| | |
+|---|---|
+| open the collection | 0.18 GB resident |
+| search | **112 ms** median, 139 ms p90 |
+| peak memory | 5.5 GB — runs under an 8 GB cap, OOM-killed at 4 GB |
+| the same vectors in numpy | 31 GB resident, always |
+
+Not constant memory — graph traversal has a real working set — but about 6×
+less than holding the corpus, which is the difference between a 2,778-hour
+library running on a laptop and not running at all.
+
+On a 205-hour corpus of genuinely distinct video, recall@20 against an exact
+scan is **89%** at 5 ms per query, against 133 ms to scan everything. One
+warning worth having: the quantized index types **do not work** on these
+embeddings. The best similarity across 205 hours is 0.16 and neighbours differ
+in the third decimal, so product quantization has nothing left to rank with:
+
+| index | size | recall@20 | latency |
+|---|---|---|---|
+| **IvfHnswFlat** (default) | 2.3 GB | **89%** | 5 ms |
+| IvfHnswSq | 635 MB | 82% | 5 ms |
+| IvfFlat | 2.3 GB | 94% | 45 ms |
+| IvfRq | 86 MB | 24% | 7 ms |
+| IvfPq | 78 MB | **0%** | 13 ms |
+
+`Collection.recall_at(queries)` runs that comparison on your own data, which is
+the only way to know where your corpus lands.
+
+```bash
+pip install "framesieve[collection]"
+python examples/04_search_a_whole_corpus.py ./footage "a red car"
+```
+
 ### Running on CPU
 
 Everything picks CUDA if there is one, Apple silicon if there is one, and CPU

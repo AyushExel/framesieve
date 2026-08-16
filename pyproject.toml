@@ -41,8 +41,11 @@ dependencies = [
 vlm = ["accelerate>=0.30", "pillow>=10.0"]
 # frames kept as JPEG blobs beside their embeddings; ~14x faster frame fetch
 store = ["pylance>=0.19"]
+# searching across many videos at once: the vectors live in LanceDB on disk
+# rather than in a numpy array in RAM
+collection = ["lancedb>=0.13"]
 dev = ["pytest>=7.4", "ruff>=0.6", "matplotlib>=3.8"]
-all = ["framesieve[vlm,store]"]
+all = ["framesieve[vlm,store,collection]"]
 
 [project.urls]
 Homepage = "https://github.com/AyushExel/framesieve"

@@ -63,11 +63,11 @@ except ImportError as exc:  # pragma: no cover - depends on the environment
 
 __all__ = ["Hit", "SearchResults", "VideoIndex", "index", "load", "open",
            "index_path_for", "DEFAULT_ENCODER", "DEFAULT_VLM",
-           "pooling", "__version__"]
+           "Collection", "CollectionHit", "pooling", "__version__"]
 
 
 def __getattr__(name: str):
-    """`framesieve.pooling` on first touch, so the score-pooling helpers are
+    """`framesieve.pooling` and `Collection` on first touch, so the score-pooling helpers are
     reachable as an attribute without importing them for everyone.
 
     `import_module` rather than `from . import pooling`: the latter resolves the
@@ -77,6 +77,11 @@ def __getattr__(name: str):
     if name == "pooling":
         import importlib
         return importlib.import_module(".pooling", __name__)
+    if name in ("Collection", "CollectionHit"):
+        # deferred because it needs lancedb, which is an optional extra: a
+        # single video never touches it
+        import importlib
+        return getattr(importlib.import_module(".collection", __name__), name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 

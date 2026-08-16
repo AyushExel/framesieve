@@ -30,6 +30,17 @@ First public release.
 - Against dense-VLM ground truth on a 4.5 h video, 26× the event recall of
   uniform sampling at 32 model calls.
 
+### Searching many videos at once
+`framesieve.Collection`, backed by LanceDB: frame vectors on disk with a vector
+index over them, searched across a whole corpus rather than one video, returning
+which video as well as when. Measured on 10M vectors (2,778 video-hours, 62 GB):
+112 ms per query at 5.5 GB peak resident, against 31 GB to hold the same vectors
+in memory. Runs under an 8 GB cap; OOM-killed at 4 GB.
+
+Defaults to `IvfHnswFlat`. The quantized index types are unusable on these
+embeddings — IvfPq scores 0% recall@20 and IvfRq 24%, because the similarities
+being ranked span a band narrower than the quantization error.
+
 ### Runs without a GPU
 CUDA if there is one, Apple silicon if there is one, CPU otherwise. Indexing an
 hour of video takes about 1 minute on 64 CPU cores and 2 minutes on 8 threads,

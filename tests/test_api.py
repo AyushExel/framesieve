@@ -279,3 +279,68 @@ print(sorted(m for m in sys.modules if m.split(".")[0] in {{"lance", "lancedb"}}
                          capture_output=True, text=True)
     assert out.returncode == 0, out.stderr[-800:]
     assert out.stdout.strip() == "[]", out.stdout
+
+
+# --- Collection -------------------------------------------------------------
+
+lancedb_missing = False
+try:
+    import lancedb  # noqa: F401
+except ImportError:  # pragma: no cover - environment
+    lancedb_missing = True
+
+needs_lancedb = pytest.mark.skipif(lancedb_missing, reason="lancedb not installed")
+
+
+def test_collection_is_reachable_but_not_imported_eagerly():
+    """lancedb is an optional extra, so touching framesieve must not need it."""
+    import subprocess
+    src = os.path.join(os.path.dirname(__file__), "..", "src")
+    out = subprocess.run(
+        [sys.executable, "-c",
+         f"import sys; sys.path.insert(0, {src!r}); import framesieve;"
+         "print('lancedb' in sys.modules)"],
+        capture_output=True, text=True)
+    assert out.stdout.strip() == "False", out.stdout
+
+
+@needs_lancedb
+def test_collection_round_trips_and_collapses_runs(tmp_path):
+    from framesieve.collection import Collection, CollectionHit
+
+    lib = Collection(str(tmp_path / "c.lancedb"))
+    assert len(lib) == 0 and lib.videos() == []
+
+    rng = np.random.default_rng(0)
+    for name in ("a.mp4", "b.mp4"):
+        e = rng.normal(size=(50, 8)).astype(np.float32)
+        e /= np.linalg.norm(e, axis=1, keepdims=True)
+        lib._append(name, np.arange(50, dtype=np.float32), e)
+
+    assert len(lib) == 100
+    assert lib.videos() == ["a.mp4", "b.mp4"]
+
+    q = rng.normal(size=8).astype(np.float32)
+    hits = lib.search(q, k=5, exact=True, min_gap_s=0)
+    assert len(hits) == 5
+    assert all(isinstance(h, CollectionHit) for h in hits)
+    # best first, and a similarity rather than a distance
+    assert hits == sorted(hits, key=lambda h: -h.score)
+    assert -1.01 <= hits[0].score <= 1.01
+
+
+@needs_lancedb
+def test_collapse_keeps_the_best_of_each_run():
+    """Consecutive frames are near-identical, so an uncollapsed ranking returns
+    one moment five times rather than five findings."""
+    from framesieve.collection import Collection, CollectionHit
+
+    hits = [CollectionHit("a.mp4", 100.0, 0.9), CollectionHit("a.mp4", 101.0, 0.89),
+            CollectionHit("a.mp4", 102.0, 0.88), CollectionHit("b.mp4", 5.0, 0.80),
+            CollectionHit("a.mp4", 900.0, 0.70)]
+    kept = Collection._collapse(hits, k=5, min_gap_s=30.0, per_video=None)
+    assert [(h.video, h.time) for h in kept] == [
+        ("a.mp4", 100.0), ("b.mp4", 5.0), ("a.mp4", 900.0)]
+
+    one_each = Collection._collapse(hits, k=5, min_gap_s=0, per_video=1)
+    assert [h.video for h in one_each] == ["a.mp4", "b.mp4"]
