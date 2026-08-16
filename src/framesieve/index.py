@@ -84,12 +84,6 @@ class FrameIndex:
         self._seg_cache: tuple | None = None
         self._adj: np.ndarray | None = None
 
-    @property
-    def emb32(self) -> np.ndarray:
-        """The embeddings, float32. Kept as a name because callers use it; the
-        conversion it used to do is gone now that `emb` is already float32."""
-        return self.emb
-
     # -- segments ----------------------------------------------------------
 
     def segments(self) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
@@ -110,7 +104,7 @@ class FrameIndex:
         become a *query-time* decision rather than an index-time one.
         """
         if getattr(self, "_adj", None) is None:
-            e = self.emb32
+            e = self.emb
             self._adj = np.einsum("ij,ij->i", e[:-1], e[1:])
         return self._adj
 
@@ -134,31 +128,25 @@ class FrameIndex:
     def segment_reps(self) -> np.ndarray:
         """L2-normalised mean embedding per segment."""
         starts, ends, _, _ = self.segments()
-        e = self.emb32
+        e = self.emb
         reps = np.stack([e[s:t].mean(0) for s, t in zip(starts, ends)])
         return reps / (np.linalg.norm(reps, axis=1, keepdims=True) + 1e-8)
 
     # -- io ----------------------------------------------------------------
 
     def save(self, path: str) -> None:
-        """Write the index. Lance unless the path ends .npz.
+        """Write the index as a Lance dataset.
 
-        Lance because it opens 4x faster than a compressed npz -- 35 ms against
-        145 ms for a 4.5-hour video -- and because it is the container the frame
-        store and `Collection` already use, so there is one format to understand
-        rather than three. It is larger on disk, 11 MB per hour against 5, and
-        that is the trade.
+        Lance rather than a compressed npz because it opens 4x faster -- 35 ms
+        against 145 ms for a 4.5-hour video -- and because it is the container
+        the frame store and `Collection` also use, so there is one format to
+        understand rather than three. It is larger on disk, 11 MB per hour of
+        video against 5, and that is the trade.
         """
-        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-        if path.endswith(".npz"):
-            np.savez_compressed(path, ts=self.ts, emb=self.emb,
-                                seg_id=self.seg_id,
-                                stats=json.dumps(asdict(self.stats)))
-            return
-
         import lance
         import pyarrow as pa
 
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
         n, d = self.emb.shape
         table = pa.table({
             "frame_idx": pa.array(np.arange(n, dtype=np.int32)),
@@ -172,19 +160,29 @@ class FrameIndex:
             json.dump({"stats": asdict(self.stats)}, f)
 
     @classmethod
-    def load(cls, path: str) -> FrameIndex:
-        """Read an index written by save(), by build_store(), or by any version
-        of framesieve from before Lance became the default."""
-        if path.endswith(".npz"):
-            z = np.load(path, allow_pickle=False)
-            return cls(z["ts"], z["emb"], z["seg_id"],
-                       IndexStats(**json.loads(str(z["stats"]))))
+    def from_npz(cls, path: str) -> FrameIndex:
+        """Read the compressed-npz form framesieve wrote before Lance.
 
+        Not part of the library's path -- `load()` reads Lance and only Lance.
+        This exists because the 843 index artifacts under runs/, which back
+        every measured number in this repository, are in the old format, and
+        the scripts that reproduce those numbers need to keep reading them.
+        `scripts/convert_indexes.py` migrates them.
+        """
+        z = np.load(path, allow_pickle=False)
+        return cls(z["ts"], z["emb"], z["seg_id"],
+                   IndexStats(**json.loads(str(z["stats"]))))
+
+    @classmethod
+    def load(cls, path: str) -> FrameIndex:
+        """Read an index written by save() or by build_store().
+
+        Both write the same columns; the store adds a jpeg blob, and naming the
+        columns here keeps those blobs off the wire.
+        """
         import lance
 
         ds = lance.dataset(path)
-        # the frame store writes these columns plus a jpeg blob; naming the
-        # columns keeps the blobs off the wire
         t = ds.to_table(columns=["ts", "seg_id", "emb"])
         emb = np.stack(t.column("emb").to_numpy(zero_copy_only=False))
         with open(os.path.join(path, "framesieve.json")) as f:

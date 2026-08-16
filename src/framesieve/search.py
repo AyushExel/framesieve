@@ -102,11 +102,11 @@ def select_candidates(index: FrameIndex, query_emb: np.ndarray, budget: int,
         edges = np.linspace(0, n, budget + 1)
         pick = np.floor(edges[:-1] + rng.uniform(0, 1, budget) * np.diff(edges)).astype(int)
         pick = np.clip(np.unique(pick), 0, n - 1)
-        sim = index.emb32 @ query_emb
+        sim = index.emb @ query_emb
         return Candidates(ts=ts[pick], cheap_score=sim[pick], strategy=strategy,
                           n_considered=n)
 
-    sim = index.emb32 @ query_emb
+    sim = index.emb @ query_emb
 
     if strategy == "topk":
         pick = np.argsort(-sim)[:budget]

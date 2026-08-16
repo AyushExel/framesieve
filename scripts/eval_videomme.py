@@ -88,7 +88,7 @@ def main() -> None:
         if vid not in index_cache:
             if len(index_cache) > 8:
                 index_cache.clear()
-            index_cache[vid] = FrameIndex.load(os.path.join(args.index_dir, f"{vid}.npz"))
+            index_cache[vid] = FrameIndex.from_npz(os.path.join(args.index_dir, f"{vid}.npz"))
         return index_cache[vid]
 
     def get_fetcher(path: str) -> FrameFetcher:

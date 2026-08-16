@@ -43,13 +43,11 @@ dependencies = [
 # the expensive stage: reading frames back and scoring them with a VLM
 vlm = ["accelerate>=0.30", "pillow>=10.0"]
 # frames kept as JPEG blobs beside their embeddings; ~14x faster frame fetch
-# kept as a no-op alias: pylance is a core dependency now
-store = []
 # searching across many videos at once: LanceDB on top of the same Lance
 # datasets a single video already writes
 collection = ["lancedb>=0.13"]
 dev = ["pytest>=7.4", "ruff>=0.6", "matplotlib>=3.8"]
-all = ["framesieve[vlm,store,collection]"]
+all = ["framesieve[vlm,collection]"]
 
 [project.urls]
 Homepage = "https://github.com/AyushExel/framesieve"

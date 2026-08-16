@@ -31,6 +31,9 @@ import numpy as np
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 from framesieve.index import FrameIndex  # noqa: E402
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _indexio import read_index  # noqa: E402
+
 CHUNK_S = 10.0
 
 
@@ -63,7 +66,7 @@ def main() -> None:
     args = ap.parse_args()
 
     g_ts, g_scores, questions = load_groundtruth(args.gt)
-    idx = FrameIndex.load(args.index)
+    idx = read_index(args.index)
     keep = idx.ts <= g_ts[-1] + 1e-6
     idx = FrameIndex(idx.ts[keep], idx.emb[keep], idx.seg_id[keep], idx.stats)
     E = idx.emb.astype(np.float32)

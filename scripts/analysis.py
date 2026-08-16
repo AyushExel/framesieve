@@ -26,6 +26,9 @@ import numpy as np
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 from framesieve.evaluate import events_from_scores  # noqa: E402
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _indexio import read_index  # noqa: E402
 from framesieve.index import FrameIndex  # noqa: E402
 
 OUT = {}
@@ -149,7 +152,7 @@ def depth_to_first_hit(gt_path: str, index_path: str, queries_path: str,
     z = np.load(gt_path, allow_pickle=True)
     gt_ts, gt_scores = z["ts"], z["scores"]
     queries = [str(q) for q in z["queries"]]
-    idx = FrameIndex.load(index_path)
+    idx = read_index(index_path)
     keep = idx.ts <= gt_ts[-1] + 1e-6
     idx = FrameIndex(idx.ts[keep], idx.emb[keep], idx.seg_id[keep], idx.stats)
 
@@ -276,7 +279,7 @@ def why_missed(gt_path: str, index_path: str, queries_path: str,
     z = np.load(gt_path, allow_pickle=True)
     gt_ts, gt_scores = z["ts"], z["scores"]
     queries = [str(q) for q in z["queries"]]
-    idx = FrameIndex.load(index_path)
+    idx = read_index(index_path)
     keep = idx.ts <= gt_ts[-1] + 1e-6
     idx = FrameIndex(idx.ts[keep], idx.emb[keep], idx.seg_id[keep], idx.stats)
     N = len(idx.ts)
@@ -367,7 +370,7 @@ def confidence_strata(gt_path: str, index_path: str, queries_path: str,
     z = np.load(gt_path, allow_pickle=True)
     gt_ts, gt_sc = z["ts"], z["scores"]
     queries = [str(q) for q in z["queries"]]
-    idx = FrameIndex.load(index_path)
+    idx = read_index(index_path)
     spec = json.load(open(queries_path))["queries"]
     cap = {s["question"]: s["caption"] for s in spec}
     enc = SiglipEncoder(encoder)

@@ -75,7 +75,7 @@ def sweep(queries, qemb, index_dir, chunk_s: float, ks, fps_div: int = 1,
         if q.video_id not in cache:
             if len(cache) > 40:
                 cache.clear()
-            cache[q.video_id] = FrameIndex.load(
+            cache[q.video_id] = FrameIndex.from_npz(
                 os.path.join(index_dir, f"{q.video_id}.npz"))
         idx = cache[q.video_id]
         ts, emb = idx.ts, idx.emb

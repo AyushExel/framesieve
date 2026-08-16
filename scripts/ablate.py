@@ -35,6 +35,9 @@ import numpy as np
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 from framesieve.encoders import SIGLIP_MODELS, SiglipEncoder  # noqa: E402
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _indexio import read_index  # noqa: E402
 from framesieve.evaluate import (  # noqa: E402
     bootstrap_ci,
     evaluate_selection,
@@ -127,7 +130,7 @@ def main() -> None:
         path = os.path.join(args.cache_dir,
                             f"{enc_key}_tau{tau:g}_gate{gate:g}.npz")
         if os.path.exists(path):
-            return _restrict(FrameIndex.load(path)), {"cached": True}
+            return _restrict(read_index(path)), {"cached": True}
         enc = SiglipEncoder(enc_key)
         t0 = time.perf_counter()
         idx = build_index(args.video, enc, target_fps=1.0, segment_tau=tau,

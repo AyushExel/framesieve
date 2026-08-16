@@ -130,7 +130,7 @@ def main() -> None:
         if v not in cache:
             if len(cache) > 12:
                 cache.clear()
-            cache[v] = FrameIndex.load(os.path.join(args.index_dir, f"{v}.npz"))
+            cache[v] = FrameIndex.from_npz(os.path.join(args.index_dir, f"{v}.npz"))
         return cache[v]
 
     all_rows = []

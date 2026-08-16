@@ -110,7 +110,7 @@ def main() -> None:
         if q.video_id not in cache:
             if len(cache) > 40:
                 cache.clear()
-            cache[q.video_id] = FrameIndex.load(
+            cache[q.video_id] = FrameIndex.from_npz(
                 os.path.join(args.index_dir, f"{q.video_id}.npz"))
         idx = cache[q.video_id]
         ch = chunks_of(float(idx.ts[-1]) + 1.0, args.chunk_s)

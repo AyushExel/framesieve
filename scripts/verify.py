@@ -37,6 +37,9 @@ import torch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 from framesieve.encoders import SIGLIP_MODELS, SiglipEncoder  # noqa: E402
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _indexio import read_index  # noqa: E402
 from framesieve.fetch import FrameFetcher  # noqa: E402
 from framesieve.frames import FrameStream  # noqa: E402
 from framesieve.index import FrameIndex  # noqa: E402
@@ -197,7 +200,7 @@ def check_index_sanity(index_path: str) -> None:
     if not os.path.exists(index_path):
         note("index sanity", f"{index_path} missing, skipped")
         return
-    idx = FrameIndex.load(index_path)
+    idx = read_index(index_path)
     norms = np.linalg.norm(idx.emb.astype(np.float32), axis=1)
     check("embeddings unit-norm", bool(np.abs(norms - 1).max() < 2e-2),
           f"max deviation {np.abs(norms-1).max():.4f}")

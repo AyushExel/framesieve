@@ -54,8 +54,12 @@ faster (35 ms against 145 ms for a 4.5-hour video); costs 11 MB per hour of
 video against 5. Embeddings are stored float32, which removes the widening cast
 entirely. `.npz` indexes written by earlier versions still load.
 
-`pylance` moves from an optional extra to a core dependency; `framesieve[store]`
-is now a no-op alias.
+`pylance` moves from an optional extra to a core dependency, and
+`framesieve[store]` is gone -- the frame store needs nothing extra now.
+
+**Breaking:** `.npz` indexes no longer load. `FrameIndex.from_npz` reads the old
+form and `scripts/convert_indexes.py` migrates a directory of them; neither is
+on the library's path. `FrameIndex.emb32` is gone, since `emb` is float32.
 
 ### Search is 4x faster
 A float16 to float32 cast was running on every query rather than once per index:

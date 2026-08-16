@@ -141,12 +141,9 @@ def test_frames_without_the_video_file_says_so():
     assert v.frames([]) == []
 
 
-@pytest.mark.parametrize("ext", [".lance", ".npz"])
-def test_save_and_load_round_trips(tmp_path, ext):
-    """Lance is what save() writes now; .npz still reads, because indexes built
-    by an older framesieve should keep working."""
+def test_save_and_load_round_trips(tmp_path):
     v = _fake_index()
-    p = v.save(str(tmp_path / f"x{ext}"))
+    p = v.save(str(tmp_path / "x.lance"))
     back = fs.load(p, video="fake.mp4")
     assert len(back) == len(v)
     assert np.allclose(back.times, v.times)
@@ -245,21 +242,21 @@ def test_cpu_gets_float32_because_bfloat16_is_emulated_there():
     assert pick_dtype("cpu", torch.float16) is torch.float16   # override wins
 
 
-def test_the_store_shares_one_dataset_with_the_plain_index():
-    """Frames and vectors live in the same Lance dataset now -- the store is an
-    extra column, not a second file -- so store= must not change the path."""
-    a = fs.index_path_for("/tmp/v.mp4", store=False)
-    b = fs.index_path_for("/tmp/v.mp4", store=True)
-    assert a == b and a.endswith(".lance")
+def test_index_path_is_one_lance_dataset():
+    """Frames and vectors live in one Lance dataset -- the store is an extra
+    column, not a second file -- so there is a single path per (video, encoder,
+    rate) and nothing to disambiguate."""
+    p = fs.index_path_for("/tmp/v.mp4")
+    assert p == "/tmp/v.framesieve-siglip2-base-224-1fps.lance"
 
 
-def test_the_plain_path_never_touches_lance():
-    """A plain .npz index must not pull in the columnar store or its deps.
+def test_importing_framesieve_does_not_pull_in_lance_or_lancedb():
+    """Lance is the index format and a core dependency, but nothing should
+    import it until an index is actually read or written -- and lancedb, which
+    is optional, should not be imported at all until Collection is touched.
 
-    `store=True` is optional and its dependency is optional with it, so the
-    default path importing lance would make an optional extra effectively
-    required. Checked in a subprocess because sys.modules is process-wide and
-    another test may legitimately have imported it.
+    Checked in a subprocess because sys.modules is process-wide and another
+    test may legitimately have imported either.
     """
     import subprocess
     src = os.path.join(os.path.dirname(__file__), "..", "src")
@@ -369,3 +366,21 @@ def test_reopening_a_collection_finds_what_is_already_in_it(tmp_path):
     assert len(again) == 20, "reopened collection came back empty"
     assert again.videos() == ["a.mp4"]
     assert len(again.search(e[0], k=3, exact=True, min_gap_s=0)) == 3
+
+
+def test_a_frameless_index_is_not_mistaken_for_a_frame_store(tmp_path):
+    """Both forms are Lance datasets and only one carries the frames.
+
+    FrameStore opens a frameless dataset perfectly happily and then fails much
+    later, when someone asks for a frame -- so the decision has to be made on
+    the schema, not on whether a constructor raises.
+    """
+    from framesieve.api import _has_frames
+
+    v = _fake_index()
+    p = v.save(str(tmp_path / "no_frames.lance"))
+    assert _has_frames(p) is False
+    assert _has_frames(str(tmp_path / "not_there.lance")) is False
+
+    back = fs.load(p, video="fake.mp4")
+    assert back._store is None, "a frameless index must not claim to be a store"

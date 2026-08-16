@@ -149,20 +149,28 @@ class SearchResults(Sequence[Hit]):
 
 
 def index_path_for(video: str, encoder: str = DEFAULT_ENCODER,
-                   fps: float = 1.0, store: bool = False) -> str:
+                   fps: float = 1.0) -> str:
     """Where the sidecar for this (video, encoder, fps) lives.
 
     The encoder and rate are in the filename on purpose: an index built with a
     different encoder is not interchangeable, and silently reusing one would
     produce plausible nonsense.
 
-    Always .lance now: it opens 4x faster than a compressed npz and is the same
-    container the frame store and Collection use, so there is one format rather
-    than three. `store` is kept for callers that pass it and no longer changes
-    the path -- the frames live in the same dataset as an extra column.
+    One path whether or not the index carries frames: `store=True` adds a blob
+    column to the same dataset rather than writing a second file.
     """
     stem = os.path.splitext(video)[0]
     return f"{stem}.framesieve-{encoder}-{fps:g}fps.lance"
+
+
+def _has_frames(path: str) -> bool:
+    """Does this index carry the frames themselves, or only their embeddings?"""
+    import lance
+
+    try:
+        return "jpeg" in lance.dataset(path).schema.names
+    except Exception:
+        return False
 
 
 class VideoIndex:
@@ -223,7 +231,7 @@ class VideoIndex:
         that is the wrong trade and `Collection` is the answer -- see
         docs/scaling.md.
         """
-        return self._index.emb32
+        return self._index.emb
 
     @property
     def frame_index(self) -> FrameIndex:
@@ -410,7 +418,7 @@ def index(video: str, *, encoder: str = DEFAULT_ENCODER, fps: float = 1.0,
 
     if store:
         from .store import FrameStore, build_store
-        out = index_path_for(video, encoder, fps, store=True)
+        out = index_path_for(video, encoder, fps)
         build_store(video, enc, out, target_fps=fps, size=size, batch=batch,
                     segment_tau=segment_tau, jpeg_quality=jpeg_quality,
                     gpu_decode=gpu_decode, seed=seed)
@@ -437,27 +445,25 @@ def load(path_or_video: str, *, video: str | None = None,
     Needs no GPU and no model: an index is a small array file, and reading it is
     the cheap half of everything this library does.
     """
-    if path_or_video.endswith((".npz", ".lance")):
-        p = path_or_video
-    else:
-        # .npz is what framesieve wrote before Lance became the default, so an
-        # index built by an older version keeps working
-        stem = os.path.splitext(path_or_video)[0]
-        legacy = f"{stem}.framesieve-{encoder}-{fps:g}fps.npz"
-        lance_p = index_path_for(path_or_video, encoder, fps)
-        p = lance_p if os.path.exists(lance_p) else legacy
+    p = (path_or_video if path_or_video.endswith(".lance")
+         else index_path_for(path_or_video, encoder, fps))
     if not os.path.exists(p):
         raise FileNotFoundError(
             f"no index at {p}. Build one with framesieve.index({path_or_video!r}) "
             f"or `framesieve index {path_or_video}`.")
 
-    if p.endswith(".lance"):
+    # Both forms are Lance datasets; only one carries the frames. Deciding on
+    # the schema rather than on whether a constructor raises, because FrameStore
+    # opens a frameless dataset perfectly happily and then fails much later, at
+    # the point someone asks for a frame.
+    st = None
+    if _has_frames(p):
         from .store import FrameStore
         st = FrameStore(p)
         fi = st.to_frame_index()
     else:
-        st, fi = None, FrameIndex.load(p)
-    src = video or (path_or_video if not path_or_video.endswith((".npz", ".lance"))
+        fi = FrameIndex.load(p)
+    src = video or (path_or_video if not path_or_video.endswith(".lance")
                     else fi.stats.video)
     return VideoIndex(fi, video=src, encoder=encoder, vlm=vlm, path=p,
                       device=device, store=st)
@@ -471,12 +477,9 @@ def open(video: str, *, encoder: str = DEFAULT_ENCODER, fps: float = 1.0,
     The one call most programs want. Shadows the builtin inside this module
     only; as `framesieve.open(...)` there is no ambiguity.
     """
-    stem = os.path.splitext(video)[0]
-    existing = [q for q in (index_path_for(video, encoder, fps),
-                            f"{stem}.framesieve-{encoder}-{fps:g}fps.npz")
-                if os.path.exists(q)]
-    if existing and not rebuild:
-        return load(existing[0], video=video, encoder=encoder, fps=fps,
-                    vlm=vlm, device=device)
+    p = index_path_for(video, encoder, fps)
+    if os.path.exists(p) and not rebuild:
+        return load(p, video=video, encoder=encoder, fps=fps, vlm=vlm,
+                    device=device)
     return index(video, encoder=encoder, fps=fps, vlm=vlm, device=device,
                  **kwargs)

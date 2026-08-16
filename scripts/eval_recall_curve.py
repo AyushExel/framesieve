@@ -28,6 +28,8 @@ from collections import defaultdict
 import numpy as np
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _indexio import read_index  # noqa: E402
 from framesieve.evaluate import (  # noqa: E402
     bootstrap_ci,
     evaluate_selection,
@@ -73,7 +75,7 @@ def main() -> None:
     args = ap.parse_args()
 
     gt_ts, gt_scores, queries, meta = load_gt(args.gt)
-    index = FrameIndex.load(args.index)
+    index = read_index(args.index)
     print(f"ground truth : {len(gt_ts):,} frames x {len(queries)} queries "
           f"({gt_ts[0]:.0f}-{gt_ts[-1]:.0f} s)")
     print(f"index        : {len(index.ts):,} frames, "

@@ -21,6 +21,9 @@ import numpy as np
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 from framesieve.evaluate import evaluate_selection, events_from_scores  # noqa: E402
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _indexio import read_index  # noqa: E402
 from framesieve.index import FrameIndex  # noqa: E402
 from framesieve.search import select_candidates  # noqa: E402
 
@@ -46,7 +49,7 @@ def main() -> None:
     z = np.load(args.gt, allow_pickle=True)
     gt_ts, gt_scores = z["ts"], z["scores"]
     queries = [str(q) for q in z["queries"]]
-    idx = FrameIndex.load(args.index)
+    idx = read_index(args.index)
     keep = idx.ts <= gt_ts[-1] + 1e-6
     idx = FrameIndex(idx.ts[keep], idx.emb[keep], idx.seg_id[keep], idx.stats)
 
