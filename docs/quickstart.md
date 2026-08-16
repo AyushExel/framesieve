@@ -38,7 +38,7 @@ framesieve index  holiday.mp4
 framesieve search holiday.mp4 "a dark tunnel" --no-refine
 ```
 
-`index` writes a sidecar next to the video — about **5 MB and 15 seconds per hour
+`index` writes a sidecar next to the video — about **11 MB and 15 seconds per hour
 of footage** — and you run it once. Everything after that reads the sidecar.
 
 `search` ranks every indexed frame against your text and returns the best
@@ -98,7 +98,7 @@ a machine with no GPU stack at all — and `score()` accepts a precomputed query
 vector, so ranking works there too:
 
 ```python
-curve = fs.load("holiday.npz").score(query_vector)   # numpy only
+curve = fs.load("holiday.lance").score(query_vector)   # numpy only
 ```
 
 ## Phrase queries as captions
@@ -146,7 +146,7 @@ than within one, move to a `Collection` — the same vectors in LanceDB on disk:
 
 ```python
 lib = fs.Collection("library.lancedb")
-lib.add_indexes("footage/*.npz")     # merge indexes you already built
+lib.add_indexes("footage/*.lance")   # merge indexes you already built
 lib.build_ann()
 
 for hit in lib.search("a red car", k=20):

@@ -119,15 +119,6 @@ def test_search_rejects_a_bad_strategy_and_a_bad_k():
         v.search("x", k=0)
 
 
-def test_index_path_names_the_store_form_separately():
-    """A frame store and a plain index are different files, so `--store` cannot
-    silently overwrite a plain index or be mistaken for one."""
-    npz = fs.index_path_for("/tmp/a.mp4", "siglip2-base-224", 1.0)
-    lance = fs.index_path_for("/tmp/a.mp4", "siglip2-base-224", 1.0, store=True)
-    assert npz.endswith(".npz") and lance.endswith(".lance")
-    assert npz[: -len(".npz")] == lance[: -len(".lance")]
-
-
 def test_index_path_encodes_the_encoder_and_rate():
     """Two indexes built with different encoders are not interchangeable, so the
     filename has to keep them apart."""
@@ -135,7 +126,7 @@ def test_index_path_encodes_the_encoder_and_rate():
     b = fs.index_path_for("/tmp/a.mp4", "siglip2-base-384", 1.0)
     c = fs.index_path_for("/tmp/a.mp4", "siglip2-base-224", 2.0)
     assert a != b != c and a != c
-    assert all(p.endswith(".npz") and p.startswith("/tmp/a.") for p in (a, b, c))
+    assert all(p.endswith(".lance") and p.startswith("/tmp/a.") for p in (a, b, c))
 
 
 def test_load_points_at_the_fix_when_there_is_no_index(tmp_path):
@@ -150,9 +141,12 @@ def test_frames_without_the_video_file_says_so():
     assert v.frames([]) == []
 
 
-def test_save_and_load_round_trips(tmp_path):
+@pytest.mark.parametrize("ext", [".lance", ".npz"])
+def test_save_and_load_round_trips(tmp_path, ext):
+    """Lance is what save() writes now; .npz still reads, because indexes built
+    by an older framesieve should keep working."""
     v = _fake_index()
-    p = v.save(str(tmp_path / "x.npz"))
+    p = v.save(str(tmp_path / f"x{ext}"))
     back = fs.load(p, video="fake.mp4")
     assert len(back) == len(v)
     assert np.allclose(back.times, v.times)
@@ -241,13 +235,12 @@ def test_cpu_gets_float32_because_bfloat16_is_emulated_there():
     assert pick_dtype("cpu", torch.float16) is torch.float16   # override wins
 
 
-def test_store_and_plain_index_are_different_files():
-    """`--store` must not be able to overwrite a plain index, or be loaded as
-    one: they hold different things and the loader branches on the suffix."""
+def test_the_store_shares_one_dataset_with_the_plain_index():
+    """Frames and vectors live in the same Lance dataset now -- the store is an
+    extra column, not a second file -- so store= must not change the path."""
     a = fs.index_path_for("/tmp/v.mp4", store=False)
     b = fs.index_path_for("/tmp/v.mp4", store=True)
-    assert a != b
-    assert a.endswith(".npz") and b.endswith(".lance")
+    assert a == b and a.endswith(".lance")
 
 
 def test_the_plain_path_never_touches_lance():

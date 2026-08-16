@@ -74,29 +74,21 @@ class FrameIndex:
     def __init__(self, ts: np.ndarray, emb: np.ndarray, seg_id: np.ndarray,
                  stats: IndexStats):
         self.ts = ts.astype(np.float32)
-        self.emb = emb.astype(np.float16)
+        # float32, not float16. Storing half and widening on read cost 17.13 ms
+        # of a 17.42 ms search -- the matmul it fed was 0.03 ms -- and the
+        # saving was 6 MB per hour of video. Lance stores it uncompressed at
+        # 11 MB/hour either way.
+        self.emb = emb.astype(np.float32)
         self.seg_id = seg_id.astype(np.int32)
         self.stats = stats
         self._seg_cache: tuple | None = None
         self._adj: np.ndarray | None = None
-        self._emb32: np.ndarray | None = None
 
     @property
     def emb32(self) -> np.ndarray:
-        """The embeddings as float32, cast once and kept.
-
-        Storing float16 halves the sidecar and costs nothing measurable, but
-        casting on every query cost everything: 17.1 ms of a 17.4 ms search on a
-        4.5-hour video, against 0.03 ms for the matmul it feeds. Anything on the
-        query path wants this rather than `emb.astype(np.float32)`.
-
-        The cache is 4 bytes a dimension a frame -- 50 MB for 4.5 hours, 1.1 GB
-        for a hundred. Past a few hundred hours that trade stops making sense
-        and `framesieve.Collection` is the answer; see docs/scaling.md.
-        """
-        if self._emb32 is None:
-            self._emb32 = self.emb.astype(np.float32)
-        return self._emb32
+        """The embeddings, float32. Kept as a name because callers use it; the
+        conversion it used to do is gone now that `emb` is already float32."""
+        return self.emb
 
     # -- segments ----------------------------------------------------------
 
@@ -149,15 +141,56 @@ class FrameIndex:
     # -- io ----------------------------------------------------------------
 
     def save(self, path: str) -> None:
+        """Write the index. Lance unless the path ends .npz.
+
+        Lance because it opens 4x faster than a compressed npz -- 35 ms against
+        145 ms for a 4.5-hour video -- and because it is the container the frame
+        store and `Collection` already use, so there is one format to understand
+        rather than three. It is larger on disk, 11 MB per hour against 5, and
+        that is the trade.
+        """
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-        np.savez_compressed(path, ts=self.ts, emb=self.emb, seg_id=self.seg_id,
-                            stats=json.dumps(asdict(self.stats)))
+        if path.endswith(".npz"):
+            np.savez_compressed(path, ts=self.ts, emb=self.emb,
+                                seg_id=self.seg_id,
+                                stats=json.dumps(asdict(self.stats)))
+            return
+
+        import lance
+        import pyarrow as pa
+
+        n, d = self.emb.shape
+        table = pa.table({
+            "frame_idx": pa.array(np.arange(n, dtype=np.int32)),
+            "ts": pa.array(self.ts.astype(np.float64)),
+            "seg_id": pa.array(self.seg_id),
+            "emb": pa.FixedSizeListArray.from_arrays(
+                pa.array(np.ascontiguousarray(self.emb).reshape(-1)), d),
+        })
+        lance.write_dataset(table, path, mode="overwrite")
+        with open(os.path.join(path, "framesieve.json"), "w") as f:
+            json.dump({"stats": asdict(self.stats)}, f)
 
     @classmethod
     def load(cls, path: str) -> FrameIndex:
-        z = np.load(path, allow_pickle=False)
-        stats = IndexStats(**json.loads(str(z["stats"])))
-        return cls(z["ts"], z["emb"], z["seg_id"], stats)
+        """Read an index written by save(), by build_store(), or by any version
+        of framesieve from before Lance became the default."""
+        if path.endswith(".npz"):
+            z = np.load(path, allow_pickle=False)
+            return cls(z["ts"], z["emb"], z["seg_id"],
+                       IndexStats(**json.loads(str(z["stats"]))))
+
+        import lance
+
+        ds = lance.dataset(path)
+        # the frame store writes these columns plus a jpeg blob; naming the
+        # columns keeps the blobs off the wire
+        t = ds.to_table(columns=["ts", "seg_id", "emb"])
+        emb = np.stack(t.column("emb").to_numpy(zero_copy_only=False))
+        with open(os.path.join(path, "framesieve.json")) as f:
+            stats = IndexStats(**json.load(f)["stats"])
+        return cls(t.column("ts").to_numpy().astype(np.float32), emb,
+                   t.column("seg_id").to_numpy().astype(np.int32), stats)
 
 
 # --------------------------------------------------------------------------

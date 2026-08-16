@@ -167,7 +167,7 @@ def at_a_glance(mode: str = "light") -> str:
     """Three measured numbers, as a strip, with what each is against."""
     t = THEME[mode]
     cards = [
-        ("15 s", "to index an hour of video", "and 5 MB, measured over 205 h"),
+        ("15 s", "to index an hour of video", "and 11 MB, measured over 205 h"),
         ("6 ms", "to search all 4.5 hours", "on a GPU; about 110 ms on CPU"),
         ("26×", "what sampling every Nth frame finds", "at the same 32 model calls"),
     ]

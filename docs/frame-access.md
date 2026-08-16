@@ -69,7 +69,7 @@ Three places, and they are real:
 
 Default: **JPEG blob store** (`./framesieve index VIDEO --store`), because the
 cascade's access pattern is scattered single frames and that is what it is best
-at. It costs 275 MB per hour of video, which is **0.30× the source file** — one
+at. It costs 2711 MB per hour of video, which is **0.30× the source file** — one
 JPEG per second is smaller than 25 H.264 frames per second, so this is cheaper
 than it sounds.
 

@@ -6,7 +6,7 @@ purpose rather than by accident.
 | | `VideoIndex` | `Collection` |
 |---|---|---|
 | holds | one video | any number of videos |
-| stored | a `.npz` sidecar, loaded into RAM | LanceDB, on disk |
+| stored | one Lance dataset, read into RAM | LanceDB, on disk |
 | search | exact, a matrix multiply over every frame | approximate, a vector index |
 | answers | *when* in this video | *which* video, and when |
 | needs | nothing beyond framesieve | `pip install "framesieve[collection]"` |
@@ -50,7 +50,7 @@ machine and not running at all.
 ## Switching
 
 You do not re-encode anything. Indexing is the expensive half, it is per-video,
-and it has already happened — a `Collection` is built by merging the sidecars
+and it has already happened — a `Collection` is built by merging the indexes
 you have.
 
 ```python
@@ -59,7 +59,7 @@ import framesieve as fs
 lib = fs.Collection("library.lancedb")
 
 # whatever you already indexed, however you indexed it
-lib.add_indexes("footage/*.npz")
+lib.add_indexes("footage/*.lance")
 
 # or index new videos straight into it
 lib.add("new_camera.mp4")
@@ -68,8 +68,8 @@ lib.build_ann()          # once, after the bulk load
 ```
 
 Because indexing is per-video it also parallelises without any coordination:
-index on as many machines as you like, copy the `.npz` files to one place, and
-merge them.
+index on as many machines as you like, copy the index directories to one
+place, and merge them.
 
 ```python
 for hit in lib.search("a red car", k=20):

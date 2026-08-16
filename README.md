@@ -35,7 +35,7 @@ of ~6 ms — still interactive.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="figures/at_a_glance.dark.png">
-  <img alt="15 seconds to index an hour of video and 5 MB, measured over 205 hours. 6 milliseconds to search all 4.5 hours on a GPU, about 110 milliseconds on CPU. 26 times what sampling every Nth frame finds, at the same 32 model calls." src="figures/at_a_glance.light.png">
+  <img alt="15 seconds to index an hour of video and 11 MB, measured over 205 hours. 6 milliseconds to search all 4.5 hours on a GPU, about 110 milliseconds on CPU. 26 times what sampling every Nth frame finds, at the same 32 model calls." src="figures/at_a_glance.light.png">
 </picture>
 
 ## Try it
@@ -44,7 +44,7 @@ of ~6 ms — still interactive.
 $ framesieve index cabride.mp4
 indexing cabride.mp4
   encoder google/siglip2-base-patch16-224 @ 75de2d55ec2d, 1.0 fps
-  wrote cabride.framesieve-siglip2-base-224-1fps.npz  (23.1 MB, 5.1 MB per hour)
+  wrote cabride.framesieve-siglip2-base-224-1fps.lance  (50.0 MB, 11.1 MB per hour)
   2.7 min for 4.51 h of video = 105x realtime
 
 $ framesieve search cabride.mp4 "a dark tunnel" -k 16
@@ -121,7 +121,7 @@ sidecars you already have.
 lib = fs.Collection("footage.lancedb")
 
 lib.add("cam1.mp4")                      # index and append
-lib.add_indexes("indexes/*.npz")         # or merge sidecars built elsewhere
+lib.add_indexes("indexes/*.lance")       # or merge indexes built elsewhere
 lib.build_ann()                          # once, after the bulk load
 
 for hit in lib.search("a red car", k=20):
@@ -244,7 +244,7 @@ Open an issue if you want to take one on.
 ## How it works
 
 ```
-video ──► sample 1 frame/sec ──► small image encoder ──► index (5 MB per hour)
+video ──► sample 1 frame/sec ──► small image encoder ──► index (11 MB per hour)
                                                             │
 query ──► encode text ──────────► rank every frame ─────────┘
                                         │
@@ -318,7 +318,7 @@ Also needs `ffmpeg` on your `PATH`.
 | extra | what it adds |
 |---|---|
 | `framesieve[vlm]` | `confirm=True`: fetch frames and check them with a vision-language model |
-| `framesieve[store]` | keep the frames themselves beside the index — see below |
+| `framesieve[store]` | no-op alias; the frame store needs nothing extra now |
 | `framesieve[dev]` | pytest, ruff |
 
 ### Keeping the frames too
@@ -328,7 +328,7 @@ Also needs `ffmpeg` on your `PATH`.
 
 | | plain index | `--store` |
 |---|---|---|
-| disk | 5 MB per hour | **275 MB per hour** (0.3× the video) |
+| disk | 11 MB per hour | **2711 MB per hour** (0.3× the video) |
 | indexing throughput | 222× realtime | 104× realtime |
 | fetching a frame | 14.5 ms | **0.9 ms** |
 | needs the video file afterwards | yes | **no** |

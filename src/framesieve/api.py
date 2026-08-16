@@ -13,9 +13,9 @@ change under you.
 
 Three ideas are worth knowing before reading further.
 
-    the index is a sidecar     Indexing writes a file next to the video. It is
-                               small (about 5 MB per hour), portable, and reading
-                               it needs no GPU and no model.
+    the index is a sidecar     Indexing writes a Lance dataset next to the video.
+                               It is small (about 11 MB per hour), portable, and
+                               reading it needs no GPU and no model.
 
     models load lazily         Opening an index costs no GPU. The image encoder
                                loads on the first search, the vision-language
@@ -156,12 +156,13 @@ def index_path_for(video: str, encoder: str = DEFAULT_ENCODER,
     different encoder is not interchangeable, and silently reusing one would
     produce plausible nonsense.
 
-    `store=True` names the frame-store form, which keeps the frames themselves
-    beside the embeddings and so ends in .lance rather than .npz.
+    Always .lance now: it opens 4x faster than a compressed npz and is the same
+    container the frame store and Collection use, so there is one format rather
+    than three. `store` is kept for callers that pass it and no longer changes
+    the path -- the frames live in the same dataset as an extra column.
     """
     stem = os.path.splitext(video)[0]
-    ext = "lance" if store else "npz"
-    return f"{stem}.framesieve-{encoder}-{fps:g}fps.{ext}"
+    return f"{stem}.framesieve-{encoder}-{fps:g}fps.lance"
 
 
 class VideoIndex:
@@ -392,7 +393,7 @@ def index(video: str, *, encoder: str = DEFAULT_ENCODER, fps: float = 1.0,
           jpeg_quality: int = 90, verbose: bool = False) -> VideoIndex:
     """Index a video: decode at `fps`, embed every frame, write a sidecar.
 
-    Costs roughly 15 seconds and 5 MB per hour of video on one GPU. Runs once;
+    Costs roughly 15 seconds and 11 MB per hour of video on one GPU. Runs once;
     every search after this reads the sidecar.
 
     `store=True` also keeps every sampled frame as a JPEG beside its embedding.
@@ -439,11 +440,12 @@ def load(path_or_video: str, *, video: str | None = None,
     if path_or_video.endswith((".npz", ".lance")):
         p = path_or_video
     else:
-        # a frame store carries everything the plain index does and more, so
-        # prefer it when both are present
-        lance_p = index_path_for(path_or_video, encoder, fps, store=True)
-        npz_p = index_path_for(path_or_video, encoder, fps)
-        p = lance_p if os.path.exists(lance_p) else npz_p
+        # .npz is what framesieve wrote before Lance became the default, so an
+        # index built by an older version keeps working
+        stem = os.path.splitext(path_or_video)[0]
+        legacy = f"{stem}.framesieve-{encoder}-{fps:g}fps.npz"
+        lance_p = index_path_for(path_or_video, encoder, fps)
+        p = lance_p if os.path.exists(lance_p) else legacy
     if not os.path.exists(p):
         raise FileNotFoundError(
             f"no index at {p}. Build one with framesieve.index({path_or_video!r}) "
@@ -469,8 +471,9 @@ def open(video: str, *, encoder: str = DEFAULT_ENCODER, fps: float = 1.0,
     The one call most programs want. Shadows the builtin inside this module
     only; as `framesieve.open(...)` there is no ambiguity.
     """
-    existing = [q for q in (index_path_for(video, encoder, fps, store=True),
-                            index_path_for(video, encoder, fps))
+    stem = os.path.splitext(video)[0]
+    existing = [q for q in (index_path_for(video, encoder, fps),
+                            f"{stem}.framesieve-{encoder}-{fps:g}fps.npz")
                 if os.path.exists(q)]
     if existing and not rebuild:
         return load(existing[0], video=video, encoder=encoder, fps=fps,

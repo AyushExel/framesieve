@@ -47,6 +47,16 @@ None of this changes any existing number: single-video search is still a numpy
 matrix multiply and never touches LanceDB, and the benchmark harnesses read the
 same `.npz` sidecars they always did.
 
+### One index format
+Indexes are Lance datasets, not compressed npz. Same container as the frame
+store and `Collection`, so there is one format rather than three; opens 4x
+faster (35 ms against 145 ms for a 4.5-hour video); costs 11 MB per hour of
+video against 5. Embeddings are stored float32, which removes the widening cast
+entirely. `.npz` indexes written by earlier versions still load.
+
+`pylance` moves from an optional extra to a core dependency; `framesieve[store]`
+is now a no-op alias.
+
 ### Search is 4x faster
 A float16 to float32 cast was running on every query rather than once per index:
 17.13 ms of a 17.42 ms search on a 4.5-hour video, against 0.03 ms for the

@@ -63,8 +63,7 @@ def cmd_index(args) -> int:
                  "building a plain index instead")
             use_store = False
 
-    out = args.out or api.index_path_for(args.video, args.encoder, args.fps,
-                                         store=use_store)
+    out = args.out or api.index_path_for(args.video, args.encoder, args.fps)
     if os.path.exists(out) and not args.force:
         _err(f"index already exists: {out}\n  (use --force to rebuild)")
         return 0

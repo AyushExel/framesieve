@@ -27,7 +27,7 @@ arguments are passed to `fs.index` when it has to build.
 ### `fs.index(video, *, encoder=..., fps=1.0, save=True, ...)`
 
 Decode at `fps`, embed every frame, write a sidecar. Costs roughly **15 seconds
-and 5 MB per hour** of video on one GPU. Needs torch.
+and 11 MB per hour** of video on one GPU. Needs torch.
 
 | argument | default | what it does |
 |---|---|---|
@@ -107,7 +107,7 @@ from framesieve.encoders import SiglipEncoder
 qv = SiglipEncoder("siglip2-base-224").encode_text(["a dark tunnel"])[0].cpu().numpy()
 
 # anywhere else
-curve = framesieve.load("holiday.npz").score(qv)
+curve = framesieve.load("holiday.lance").score(qv)
 ```
 
 That is the shape for serving: one machine holds the encoder, every other
