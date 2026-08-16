@@ -72,6 +72,7 @@ def cmd_index(args) -> int:
     t0 = time.perf_counter()
     v = api.index(args.video, encoder=args.encoder, fps=args.fps,
                   device=args.device, store=use_store, audio=args.audio,
+                  ocr=args.ocr, ocr_every=args.ocr_every,
                   language=args.language, size=args.size,
                   batch=args.batch, segment_tau=args.segment_tau,
                   pixel_gate_tau=args.pixel_gate_tau,
@@ -92,6 +93,8 @@ def cmd_index(args) -> int:
          f"{dt:.1f} s total for {hours:.2f} h including model load")
     if v.has_speech:
         _err(f"  transcript: {len(v.speech)} segments")
+    if v.has_text:
+        _err(f"  on-screen text: {len(v.text)} frames carried it")
     if args.json:
         print(json.dumps({"index": v.path, "store": use_store,
                           "megabytes": round(mb, 2), "frames": len(v),
@@ -280,6 +283,14 @@ def build_parser() -> argparse.ArgumentParser:
                    help="also transcribe the audio with Whisper and index the "
                         "timed segments, so `search --source speech` can reach "
                         "what was said. ~11x realtime (needs framesieve[audio])")
+    p.add_argument("--ocr", action="store_true",
+                   help="also read the text on screen and index it, so "
+                        "`search --source text` can reach a caption or a slide "
+                        "title. ~7 min per hour of video (needs framesieve[ocr])")
+    p.add_argument("--ocr-every", default="segment", choices=["segment", "frame"],
+                   help="read one frame per shot (default) or every frame; "
+                        "'frame' is ~4x slower and only helps when the text "
+                        "changes under a still picture")
     p.add_argument("--language", default=None,
                    help="force a transcription language, e.g. en; "
                         "auto-detected otherwise")
@@ -315,9 +326,9 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--save-frames", default=None, metavar="DIR",
                    help="write the reported frames as JPEGs")
     s.add_argument("--source", default=None,
-                   choices=["visual", "speech", "both"],
-                   help="search frames, the transcript, or whatever the index "
-                        "has (the default)")
+                   choices=["visual", "speech", "text"],
+                   help="search frames, the transcript, or the on-screen text; "
+                        "by default whatever the index has")
     s.add_argument("--build-missing", action="store_true",
                    help="index the video first if it has no index yet")
     s.set_defaults(fn=cmd_search)

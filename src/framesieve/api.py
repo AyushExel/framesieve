@@ -170,6 +170,26 @@ def index_path_for(video: str, encoder: str = DEFAULT_ENCODER,
     return f"{stem}.framesieve-{encoder}-{fps:g}fps.lance"
 
 
+def _load_timed_text(video: str | None) -> dict:
+    """Whatever timed-text passes have been run for this video.
+
+    Each is a sibling dataset written by its own pass, so any subset of them can
+    exist -- a video can have a transcript and no OCR, or the reverse.
+    """
+    from .audio import speech_path_for
+    from .ocr import text_path_for
+    from .timedtext import TimedTextIndex
+
+    out: dict = {}
+    if not video:
+        return out
+    for kind, path in (("speech", speech_path_for(video)),
+                       ("text", text_path_for(video))):
+        if os.path.exists(path):
+            out[kind] = TimedTextIndex.load(path)
+    return out
+
+
 def _has_frames(path: str) -> bool:
     """Does this index carry the frames themselves, or only their embeddings?"""
     import lance
@@ -189,7 +209,7 @@ class VideoIndex:
     def __init__(self, frame_index: FrameIndex, video: str | None = None,
                  encoder: str = DEFAULT_ENCODER, vlm: str = DEFAULT_VLM,
                  path: str | None = None, device: str | None = None,
-                 store=None, speech=None):
+                 store=None, timed_text=None):
         self._index = frame_index
         self.video = video or frame_index.stats.video
         self.path = path
@@ -202,10 +222,10 @@ class VideoIndex:
         # 14.5 ms, measured. It also means confirm= and frames() work without
         # the source video present at all.
         self._store = store
-        # a SpeechIndex, when the video was indexed with audio=True. Kept beside
-        # the frames rather than merged into them: the two are produced by
-        # different passes and either can exist without the other.
-        self._speech = speech
+        # {kind: TimedTextIndex} -- "speech" from Whisper, "text" from OCR.
+        # Kept beside the frames rather than merged into them: each is produced
+        # by its own pass and any of them can exist without the others.
+        self._tt = dict(timed_text or {})
         self._text_enc = None
         self._searcher: CascadeSearcher | None = None
         self._vlm = None
@@ -246,14 +266,29 @@ class VideoIndex:
         return self._index.emb
 
     @property
+    def sources(self) -> list[str]:
+        """What this index can be searched by: always "visual", plus "speech"
+        and "text" when those passes were run."""
+        return ["visual"] + [k for k, v in sorted(self._tt.items()) if len(v)]
+
+    @property
     def has_speech(self) -> bool:
-        """Was this video indexed with `audio=True`?"""
-        return self._speech is not None and len(self._speech) > 0
+        return "speech" in self.sources
+
+    @property
+    def has_text(self) -> bool:
+        """Was an OCR pass run over the frames?"""
+        return "text" in self.sources
 
     @property
     def speech(self):
-        """The `SpeechIndex`, or None. Its `.segments` are the transcript."""
-        return self._speech
+        """The transcript index, or None. Its `.segments` are the lines."""
+        return self._tt.get("speech")
+
+    @property
+    def text(self):
+        """The on-screen-text index, or None."""
+        return self._tt.get("text")
 
     @property
     def frame_index(self) -> FrameIndex:
@@ -340,7 +375,7 @@ class VideoIndex:
         return self.embeddings @ self._query_vector(query)
 
     def search(self, query: str, k: int = 32, *, confirm: bool = False,
-               source: str | None = None, question: str | None = None,
+               source: str | list[str] | None = None, question: str | None = None,
                strategy: str = "segment_adaptive", tokens_per_frame: int = 64,
                merge_gap_s: float = 10.0, seed: int = 0) -> SearchResults:
         """Find the k moments most likely to match `query`.
@@ -348,45 +383,57 @@ class VideoIndex:
         query            what to look for, phrased as a caption ("a dark tunnel")
                          rather than a question -- the retrieval encoder is
                          caption-trained and the difference is worth real accuracy
-        k                how many candidate frames to return, and with
-                         confirm=True how many calls the expensive model makes
+        k                how many candidates to return, and with confirm=True how
+                         many calls the expensive model makes
         confirm          show the surviving frames to a vision-language model and
-                         return its verdict. Costs about 30 ms per frame; without
-                         it a "hit" only means "looks similar"
-        source           "visual" searches frames, "speech" searches the
-                         transcript, None (the default) searches whatever the
-                         index has. Speech needs audio=True at index time
+                         return its verdict. About 30 ms a frame; without it a
+                         "hit" only means "looks similar"
+        source           which signals to search: "visual" (frames), "speech"
+                         (the transcript), "text" (what is written on screen), or
+                         a list of them. None searches everything the index has;
+                         `.sources` says what that is
         question         the yes/no question put to the VLM. Defaults to
                          "Does this frame show: {query}?"
-        strategy         how visual candidates are spread over the video; see
-                         framesieve.search.STRATEGIES
-        merge_gap_s      a frame hit and a transcript hit this close together are
-                         the same moment, and come back as one result marked
-                         source="both"
+        strategy         how visual candidates are spread over the video
+        merge_gap_s      hits from different sources this close together are the
+                         same moment, and come back as one result whose `source`
+                         names all of them
         """
-        if source not in (None, "visual", "speech", "both"):
-            raise ValueError(f"source must be 'visual', 'speech' or None, "
-                             f"got {source!r}")
-        if source == "speech" and not self.has_speech:
-            raise ValueError(
-                "this index has no transcript. Rebuild with "
-                "framesieve.index(video, audio=True) or `framesieve index "
-                "--audio`.")
-        want_speech = self.has_speech and source in (None, "speech", "both")
-        want_visual = source in (None, "visual", "both") or not want_speech
+        want = self._resolve_sources(source)
 
-        speech_hits = self._search_speech(query, k) if want_speech else []
-        if not want_visual:
-            return SearchResults(query, speech_hits[:k], {}, k, "speech", False)
+        text_hits = {kind: self._search_timed_text(kind, query, k)
+                     for kind in want if kind != "visual"}
+        if "visual" not in want:
+            merged = self._merge(list(text_hits.values()), k, merge_gap_s)
+            return SearchResults(query, merged, {}, k, "+".join(want), False)
 
         vis = self._search_visual(query, k, confirm=confirm, question=question,
                                   strategy=strategy,
                                   tokens_per_frame=tokens_per_frame, seed=seed)
-        if not speech_hits:
+        if not text_hits:
             return vis
-        merged = self._merge(list(vis), speech_hits, k, merge_gap_s)
+        merged = self._merge([list(vis)] + list(text_hits.values()), k,
+                             merge_gap_s)
         return SearchResults(query, merged, vis.timings, k, vis.strategy,
                              vis.confirmed)
+
+    def _resolve_sources(self, source) -> list[str]:
+        have = self.sources
+        if source is None:
+            return have
+        want = [source] if isinstance(source, str) else list(source)
+        for s in want:
+            if s not in ("visual", "speech", "text"):
+                raise ValueError(
+                    f"source must be 'visual', 'speech', 'text' or a list of "
+                    f"them, got {s!r}")
+            if s not in have:
+                how = {"speech": "audio=True", "text": "ocr=True"}[s]
+                raise ValueError(
+                    f"this index has no {s!r}. Rebuild with "
+                    f"framesieve.index(video, {how}) or `framesieve index "
+                    f"--{'audio' if s == 'speech' else 'ocr'}`.")
+        return want
 
     def _search_visual(self, query, k, *, confirm, question, strategy,
                        tokens_per_frame, seed) -> SearchResults:
@@ -411,59 +458,73 @@ class VideoIndex:
         return SearchResults(query, hits, res.timings, k, strategy,
                              res.vlm_score is not None)
 
-    def _search_speech(self, query: str, k: int) -> list[Hit]:
-        """Rank transcript segments. A different encoder from the visual side,
+    def _search_timed_text(self, kind: str, query: str, k: int) -> list[Hit]:
+        """Rank one timed-text source. Both of them use a sentence encoder,
         because SigLIP's text tower is built to sit beside images and is a poor
         text-to-text matcher."""
-        from .audio import TextEncoder
+        from .timedtext import DEFAULT_TEXT_ENCODER, TextEncoder
 
+        idx = self._tt[kind]
         if self._text_enc is None:
             self._text_enc = TextEncoder(
-                self._speech.meta.get("text_encoder") or None
-                or __import__("framesieve.audio", fromlist=["DEFAULT_TEXT_ENCODER"]
-                              ).DEFAULT_TEXT_ENCODER,
+                idx.meta.get("text_encoder") or DEFAULT_TEXT_ENCODER,
                 device=self._device)
         q = self._text_enc.encode([query], query=True)[0]
-        sims = self._speech.emb @ q
+        sims = idx.emb @ q
         order = np.argsort(-sims)[:k]
-        return [Hit(time=float(self._speech.segments[i].start),
-                    score=float(sims[i]), source="speech",
-                    text=self._speech.segments[i].text) for i in order]
+        return [Hit(time=float(idx.segments[i].start), score=float(sims[i]),
+                    source=kind, text=idx.segments[i].text) for i in order]
 
     @staticmethod
-    def _merge(visual: list[Hit], speech: list[Hit], k: int,
-               gap_s: float) -> list[Hit]:
-        """Combine two rankings without comparing their scores.
+    def _merge(rankings: list[list[Hit]], k: int, gap_s: float) -> list[Hit]:
+        """Combine several rankings without comparing their scores.
 
-        A similarity against a frame and a similarity against a sentence are not
-        the same quantity, so ordering them together by score would be
-        meaningless. What IS comparable is rank -- first place in each list is
-        first place -- and what is informative is agreement: when both modalities
-        point at the same second, that moment is a better candidate than either
-        list's leader alone.
+        A similarity against a frame, against a spoken sentence and against a
+        line of on-screen text are three different quantities. Ordering them
+        together by score would be meaningless. What IS comparable is rank --
+        first place is first place -- and what is informative is agreement: when
+        two signals point at the same second, that moment is a better candidate
+        than either list's leader alone.
 
-        So: pair hits that fall within `gap_s`, mark them "both", and order by
-        best rank with agreement worth one place.
+        So: group hits that fall within `gap_s`, name every source that found
+        each group, and order by best rank with one place off per extra source
+        that agreed.
         """
-        used: set[int] = set()
-        scored: list[tuple[float, Hit]] = []
-        for vi, v in enumerate(visual):
-            partner = None
-            for si, sp in enumerate(speech):
-                if si not in used and abs(sp.time - v.time) <= gap_s:
-                    partner, used = sp, used | {si}
+        flat = [(rank, h) for ranking in rankings
+                for rank, h in enumerate(ranking)]
+        flat.sort(key=lambda x: (x[0], x[1].time))
+
+        # Group ACROSS sources only. Two visual hits a few seconds apart are a
+        # separate question -- the selection strategy already decided they were
+        # both worth returning -- and folding them together here would silently
+        # drop one.
+        groups: list[list[tuple[int, Hit]]] = []
+        for rank, h in flat:
+            for g in groups:
+                if h.source in {o.source for _, o in g}:
+                    continue
+                if any(abs(h.time - other.time) <= gap_s for _, other in g):
+                    g.append((rank, h))
                     break
-            if partner is None:
-                scored.append((float(vi), v))
             else:
-                scored.append((min(vi, speech.index(partner)) - 1.0,
-                               Hit(time=v.time, score=v.score, source="both",
-                                   text=partner.text, vlm_score=v.vlm_score)))
-        for si, sp in enumerate(speech):
-            if si not in used:
-                scored.append((float(si), sp))
-        scored.sort(key=lambda x: x[0])
-        return [h for _, h in scored[:k]]
+                groups.append([(rank, h)])
+
+        out: list[tuple[float, Hit]] = []
+        for g in groups:
+            best_rank = min(r for r, _ in g)
+            lead = min(g, key=lambda x: x[0])[1]
+            srcs = sorted({h.source for _, h in g})
+            text = next((h.text for _, h in g if h.text), None)
+            visual = next((h for _, h in g if h.source == "visual"), None)
+            out.append((
+                best_rank - (len(srcs) - 1),
+                Hit(time=(visual or lead).time,
+                    score=(visual or lead).score,
+                    source="+".join(srcs) if len(srcs) > 1 else srcs[0],
+                    text=text,
+                    vlm_score=(visual.vlm_score if visual else None))))
+        out.sort(key=lambda x: x[0])
+        return [h for _, h in out[:k]]
 
     def frames(self, times: Iterable[float] | SearchResults,
                size: int | None = None) -> list[np.ndarray]:
@@ -503,8 +564,9 @@ class VideoIndex:
 
 def index(video: str, *, encoder: str = DEFAULT_ENCODER, fps: float = 1.0,
           vlm: str = DEFAULT_VLM, device: str | None = None,
-          store: bool = False, audio: bool = False,
-          language: str | None = None, save: bool = True, batch: int = 256,
+          store: bool = False, audio: bool = False, ocr: bool = False,
+          ocr_every: str = "segment", language: str | None = None,
+          save: bool = True, batch: int = 256,
           size: int = 256, segment_tau: float = 0.0,
           pixel_gate_tau: float = 0.0, start: float = 0.0,
           duration: float = 0.0, gpu_decode: bool = False, seed: int = 0,
@@ -519,6 +581,11 @@ def index(video: str, *, encoder: str = DEFAULT_ENCODER, fps: float = 1.0,
     rather than shown. Runs at about 11x realtime and writes a sibling dataset;
     skipped with a warning when the file has no audio track.
 
+    `ocr=True` reads the text on screen and indexes it, so `source="text"` can
+    reach a caption or a slide title. The most expensive pass here at roughly
+    7 minutes per hour of video, which `ocr_every="segment"` (the default) cuts
+    by reading one frame per shot instead of every frame.
+
     `store=True` also keeps every sampled frame as a JPEG beside its embedding.
     That makes confirm= about 15x faster at fetching frames (0.9 ms each against
     14.5 ms of ffmpeg seeking) and lets the index work without the source video
@@ -531,7 +598,11 @@ def index(video: str, *, encoder: str = DEFAULT_ENCODER, fps: float = 1.0,
     from .encoders import SiglipEncoder
     enc = SiglipEncoder(encoder, device=device)
 
-    sp = _index_audio(video, device, language, verbose) if audio else None
+    tt: dict = {}
+    if audio:
+        sp = _index_audio(video, device, language, verbose)
+        if sp is not None:
+            tt["speech"] = sp
 
     if store:
         from .store import FrameStore, build_store
@@ -541,7 +612,8 @@ def index(video: str, *, encoder: str = DEFAULT_ENCODER, fps: float = 1.0,
                     gpu_decode=gpu_decode, seed=seed)
         fs_ = FrameStore(out)
         return VideoIndex(fs_.to_frame_index(), video=video, encoder=encoder,
-                          vlm=vlm, path=out, device=device, store=fs_, speech=sp)
+                          vlm=vlm, path=out, device=device, store=fs_,
+                          timed_text=tt)
 
     fi = build_index(video, enc, target_fps=fps, batch=batch,
                      size=size, pixel_gate_tau=pixel_gate_tau,
@@ -549,9 +621,18 @@ def index(video: str, *, encoder: str = DEFAULT_ENCODER, fps: float = 1.0,
                      duration_s=duration, gpu_decode=gpu_decode, seed=seed,
                      verbose=verbose)
     vi = VideoIndex(fi, video=video, encoder=encoder, vlm=vlm, device=device,
-                    speech=sp)
+                    timed_text=tt)
     if save:
         vi.save(index_path_for(video, encoder, fps))
+    if ocr:
+        # after the frame index exists, because the OCR pass uses its
+        # segmentation to decide which frames are worth reading
+        from .ocr import build_text_index, text_path_for
+
+        ti = build_text_index(video, index=fi, fps=fps, every=ocr_every,
+                              device=device, verbose=verbose)
+        ti.save(text_path_for(video))
+        vi._tt["text"] = ti
     return vi
 
 
@@ -602,14 +683,9 @@ def load(path_or_video: str, *, video: str | None = None,
         fi = FrameIndex.load(p)
     src = video or (path_or_video if not path_or_video.endswith(".lance")
                     else fi.stats.video)
-    # a transcript is a sibling dataset, and either can exist without the other
-    from .audio import SpeechIndex, speech_path_for
-
-    sp_path = speech_path_for(src) if src else None
-    sp = (SpeechIndex.load(sp_path)
-          if sp_path and os.path.exists(sp_path) else None)
     return VideoIndex(fi, video=src, encoder=encoder, vlm=vlm, path=p,
-                      device=device, store=st, speech=sp)
+                      device=device, store=st,
+                      timed_text=_load_timed_text(src))
 
 
 def open(video: str, *, encoder: str = DEFAULT_ENCODER, fps: float = 1.0,

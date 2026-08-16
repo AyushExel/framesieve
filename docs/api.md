@@ -40,7 +40,9 @@ and 11 MB per hour** of video on one GPU. Needs torch.
 | `start`, `duration` | `0.0` | index only part of the video, in seconds |
 | `gpu_decode` | `False` | decode with NVDEC: fewer CPU cores, slower wall clock on most hosts |
 | `device` | auto | `"cuda"`, `"mps"` or `"cpu"`; picks whichever is present |
-| `audio` | `False` | also transcribe with Whisper and index the timed segments, so `source="speech"` works. ~11x realtime. Needs `framesieve[audio]` |
+| `audio` | `False` | transcribe with Whisper and index the timed segments, so `source="speech"` works. ~5.5 min per video-hour. Needs `framesieve[audio]` |
+| `ocr` | `False` | read the on-screen text and index it, so `source="text"` works. ~1.5 min per video-hour. Needs `framesieve[ocr]` |
+| `ocr_every` | `"segment"` | `"segment"` reads one frame per shot, `"frame"` reads all of them (~4× slower) |
 | `language` | auto | force a transcription language, e.g. `"en"` |
 | `store` | `False` | also keep every frame as a JPEG beside its embedding: 15× faster frame fetch and no need for the video afterwards, at 55× the disk. Needs `pylance` |
 | `seed` | `0` | |
@@ -83,8 +85,9 @@ Find the `k` moments most likely to match `query`.
   which is not the same as "is".
 - **`question`** — the yes/no question put to the model. Defaults to
   `"Does this frame show: {query}?"`.
-- **`source`** — `"visual"` searches frames, `"speech"` the transcript, `None`
-  (default) whatever the index has. Speech needs `audio=True` at index time
+- **`source`** — `"visual"` (frames), `"speech"` (the transcript), `"text"`
+  (what is written on screen), or a list of them. `None` (default) uses
+  everything the index has; `.sources` says what that is
 - **`merge_gap_s`** — a frame hit and a transcript hit this close together are
   the same moment, returned once as `source="both"`
 - **`strategy`** — how visual candidates are spread over the video. See below.
@@ -157,8 +160,8 @@ nothing — better to refuse than to filter plausibly.
 | `.time` | seconds from the start |
 | `.timecode` | `"1:20:21"` |
 | `.score` | retrieval similarity, comparable **within** a query only |
-| `.source` | `"visual"`, `"speech"`, or `"both"` when the two agreed |
-| `.text` | the transcript line, when speech matched |
+| `.source` | `"visual"`, `"speech"`, `"text"`, or several joined by `+` when they agreed on the moment |
+| `.text` | the transcript line or the on-screen text, when one of those matched |
 | `.vlm_score` | log-odds from the model, or `None` |
 | `.confirmed` | `True` / `False` / `None` if no model has looked |
 

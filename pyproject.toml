@@ -50,8 +50,11 @@ collection = ["lancedb>=0.13"]
 # transformers, which is already core; this is the sentence encoder's tokenizer
 # and the audio resampler.
 audio = ["sentencepiece>=0.2", "protobuf>=4.25"]
+# reading the text on screen. ONNX rather than a torch OCR: it is small, runs on
+# CPU, and does not need a second deep-learning stack alongside the one here.
+ocr = ["rapidocr-onnxruntime>=1.3"]
 dev = ["pytest>=7.4", "ruff>=0.6", "matplotlib>=3.8"]
-all = ["framesieve[vlm,collection,audio]"]
+all = ["framesieve[vlm,collection,audio,ocr]"]
 
 [project.urls]
 Homepage = "https://github.com/AyushExel/framesieve"

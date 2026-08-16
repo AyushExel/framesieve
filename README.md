@@ -101,45 +101,52 @@ curve  = video.score("a red car")          # similarity for every frame
 index needs torch; *reading* one does not, so you can ship indexes to machines
 with no GPU and search them there.
 
-### Searching what was said
+### Searching what was said and what was written
 
 A frame encoder cannot hear. On a meeting, a lecture, an interview or most of
 YouTube, the thing you want was spoken rather than shown — so `--audio`
 transcribes with Whisper and indexes the timed segments alongside the frames.
 
+A 224-pixel embedding also cannot read — on MomentSeeker's OCR split the
+retrieval stage scores 3.4, close to chance — so `--ocr` reads the text on
+screen and indexes that too.
+
 ```bash
-pip install "framesieve[audio]"
-framesieve index my_video.mp4 --audio        # ~11x realtime
+pip install "framesieve[audio,ocr]"
+framesieve index my_video.mp4 --audio --ocr   # ~5.5 and ~1.5 min per video-hour
 framesieve search my_video.mp4 "the part about pricing"
 ```
 
 ```python
 video = fs.open("talk.mp4")
+video.sources                                   # ['visual', 'speech', 'text']
 
-video.search("a drone flying")                     # both, merged
-video.search("a drone flying", source="visual")    # frames only
-video.search("a drone flying", source="speech")    # transcript only
+video.search("a drone flying")                  # everything the index has
+video.search("a drone flying", source="visual") # frames only
+video.search("a drone flying", source="speech") # transcript only
+video.search("a drone flying", source="text")   # what is written on screen
 
-for hit in video.search("someone shooting a hoop"):
+for hit in video.search("a drone flying"):
     print(hit.timecode, hit.source, hit.text or "")
 ```
 
-A frame similarity and a sentence similarity are **not the same quantity**, so
-they are never ranked against each other. Each modality is ranked within itself,
-and the two are merged on *time*: when a frame hit and a transcript hit land on
-the same moment it comes back once, marked `source="both"`, and promoted —
-because agreement between two independent signals is worth more than either
-one's leader.
+A frame similarity, a spoken sentence and a line of on-screen text are **three
+different quantities**, so they are never ranked against each other. Each source
+is ranked within itself, and they are merged on *time*: when signals land on the
+same moment it comes back once, naming all of them, and promoted — because
+agreement between independent signals beats any one list's leader.
 
 ```
-"someone shooting a basketball hoop"
-   0:20:40  both     0.157  at a half court and if you make it you're safe
-   0:14:33  visual   0.096
-   0:35:47  speech   0.600  I should have gathered...
+"dribbles in 60 seconds"
+   0:14:51  speech+text+visual  20 LOW, MEDIUM, & HIGH DRIBBLES IN 60 SECONDS
+   0:02:51  speech              Take turns using the skills dribble stick...
+   0:12:02  text+visual         2HYPE MOST DRIBBLES IN 15 SECONDS
 ```
 
-Every hit carries `.source` (`visual` / `speech` / `both`) and `.text` when a
-transcript matched, so you always know which signal found it.
+Every hit carries `.source` and `.text`, so you always know which signal found
+it. `--ocr` reads one frame per shot by default, reusing the redundancy the
+index already found; `--ocr-every frame` reads all of them, ~4× slower, for
+footage whose text changes under a still picture.
 
 ### Searching a whole library
 
@@ -256,8 +263,6 @@ Good fits:
 
 Does not work today:
 
-- **Reading text in the video.** No OCR. Signs, licence plates and captions are
-  close to invisible to it.
 - **Where something is in the frame.** "the cup on the left" does not work — it
   matches whole frames, not regions.
 
@@ -269,18 +274,13 @@ Not what it is for, and not planned:
 
 ### Wanted
 
-Both are additions rather than redesigns, and separable enough to be good first
-contributions:
-
-- **OCR.** A text-detection pass over the candidate frames, *after* retrieval
-  narrows them down — which is the whole point of the cascade.
 - **Region-level matching**, for "on the left" style queries. The hardest of the
-  three: it needs an embedding per region rather than per frame, which changes
-  the index size and the storage story.
+  three that were on this list: it needs an embedding per region rather than per
+  frame, which changes the index size and the storage story.
 
-Speech used to be on this list; it is now `--audio`.
+Speech and OCR used to be here; they are now `--audio` and `--ocr`.
 
-Open an issue if you want to take one on.
+Open an issue if you want to take it on.
 
 ## How it works
 
@@ -358,8 +358,9 @@ Also needs `ffmpeg` on your `PATH`.
 
 | extra | what it adds |
 |---|---|
+| `framesieve[audio]` | transcribe with Whisper, so `source="speech"` works |
+| `framesieve[ocr]` | read the text on screen, so `source="text"` works |
 | `framesieve[vlm]` | `confirm=True`: fetch frames and check them with a vision-language model |
-| `framesieve[store]` | no-op alias; the frame store needs nothing extra now |
 | `framesieve[dev]` | pytest, ruff |
 
 ### Keeping the frames too

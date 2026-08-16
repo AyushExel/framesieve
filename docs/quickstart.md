@@ -137,14 +137,15 @@ Recall keeps climbing and so does the bill; there is no k at which you have
   relevance; on Video-MME every selection strategy landed inside every other's
   confidence interval, and the frame budget dominated.
 
-## Speech
+## Speech and on-screen text
 
-`--audio` transcribes the video with Whisper and indexes the timed segments, so
-things that were said become searchable alongside things that were shown:
+Frames are not the only signal in a video. `--audio` transcribes with Whisper;
+`--ocr` reads the text on screen. Both index timed spans that become searchable
+alongside the frames:
 
 ```bash
-pip install "framesieve[audio]"
-framesieve index talk.mp4 --audio
+pip install "framesieve[audio,ocr]"
+framesieve index talk.mp4 --audio --ocr
 framesieve search talk.mp4 "the part about pricing" --source speech
 ```
 
@@ -154,10 +155,11 @@ for hit in video.search("a drone flying"):      # both modalities, merged
     print(hit.timecode, hit.source, hit.text or "")
 ```
 
-`source="visual"` and `source="speech"` restrict it to one. The two are never
-ranked against each other — a frame similarity and a sentence similarity are
-different quantities — but when both point at the same moment it comes back once
-as `source="both"`, which is the strongest signal either can give you.
+`source=` restricts to one of `"visual"`, `"speech"`, `"text"`. They are never
+ranked against each other — a frame similarity, a spoken sentence and a line of
+on-screen text are different quantities — but when several point at the same
+moment it comes back once naming all of them, which is the strongest signal any
+of them can give you.
 
 ## More than one video
 

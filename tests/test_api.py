@@ -405,10 +405,10 @@ def test_merge_pairs_hits_that_land_on_the_same_moment():
     visual = [Hit(time=100.0, score=0.2), Hit(time=500.0, score=0.19)]
     speech = _speech_hits([104.0, 900.0], ["about pricing", "unrelated"])
 
-    merged = VideoIndex._merge(visual, speech, k=5, gap_s=10.0)
+    merged = VideoIndex._merge([visual, speech], k=5, gap_s=10.0)
     # 100 and 104 are one moment: marked both, carrying the transcript, and
     # promoted above the visual hit that had no agreement
-    assert merged[0].source == "both"
+    assert merged[0].source == "speech+visual"
     assert merged[0].time == 100.0
     assert merged[0].text == "about pricing"
     assert {h.source for h in merged[1:]} == {"visual", "speech"}
@@ -420,9 +420,9 @@ def test_merge_leaves_distant_hits_alone():
 
     visual = [Hit(time=10.0, score=0.2)]
     speech = _speech_hits([500.0])
-    merged = VideoIndex._merge(visual, speech, k=5, gap_s=10.0)
+    merged = VideoIndex._merge([visual, speech], k=5, gap_s=10.0)
     assert [h.source for h in merged] == ["visual", "speech"]
-    assert all(h.source != "both" for h in merged)
+    assert all("+" not in h.source for h in merged)
 
 
 def test_searching_speech_without_a_transcript_says_how_to_get_one():
@@ -434,6 +434,31 @@ def test_searching_speech_without_a_transcript_says_how_to_get_one():
         v.search("anything", source="nonsense")
 
 
+def test_sources_lists_what_the_index_can_actually_be_searched_by():
+    v = _fake_index()
+    assert v.sources == ["visual"]
+    assert v.has_speech is False and v.has_text is False
+
+
+def test_merge_names_every_source_that_agreed():
+    """Three signals landing on one moment is a stronger result than any of
+    them alone, and the caller should be able to see which three."""
+    from framesieve.api import Hit, VideoIndex
+
+    visual = [Hit(time=90.0, score=0.1), Hit(time=42.0, score=0.2)]
+    speech = [Hit(time=44.0, score=0.6, source="speech", text="said it")]
+    ocr = [Hit(time=43.0, score=0.7, source="text", text="PRICING")]
+    merged = VideoIndex._merge([visual, speech, ocr], k=5, gap_s=10.0)
+
+    top = merged[0]
+    assert top.source == "speech+text+visual"
+    assert top.time == 42.0        # the frame's time, when a frame agreed
+    assert top.score == 0.2        # and the frame's score
+    assert top.text in ("said it", "PRICING")
+    # the lone visual hit is still there, ranked below the agreement
+    assert [h.source for h in merged[1:]] == ["visual"]
+
+
 def test_merge_marks_agreement_and_keeps_the_transcript():
     """Agreement between the two modalities is the one signal that beats either
     list's leader, so it has to survive the merge with its text attached."""
@@ -441,9 +466,9 @@ def test_merge_marks_agreement_and_keeps_the_transcript():
 
     visual = [Hit(time=50.0, score=0.10), Hit(time=1240.0, score=0.16)]
     speech = _speech_hits([1245.0, 3000.0], ["at a half court", "unrelated"])
-    merged = VideoIndex._merge(visual, speech, k=4, gap_s=20.0)
+    merged = VideoIndex._merge([visual, speech], k=4, gap_s=20.0)
 
-    agree = [h for h in merged if h.source == "both"]
+    agree = [h for h in merged if "+" in h.source]
     assert len(agree) == 1
     assert agree[0].time == 1240.0                 # the frame's time, not the line's
     assert agree[0].text == "at a half court"
@@ -457,8 +482,8 @@ def test_a_speech_hit_is_paired_at_most_once():
 
     visual = [Hit(time=100.0, score=0.2), Hit(time=103.0, score=0.19)]
     speech = _speech_hits([101.0])
-    merged = VideoIndex._merge(visual, speech, k=5, gap_s=10.0)
-    assert sum(h.source == "both" for h in merged) == 1
+    merged = VideoIndex._merge([visual, speech], k=5, gap_s=10.0)
+    assert sum("+" in h.source for h in merged) == 1
     assert sum(h.source == "visual" for h in merged) == 1
     assert len(merged) == 2
 
@@ -474,3 +499,41 @@ def test_speech_path_is_a_sibling_of_the_frame_index():
     # interchangeable, the same way an index from a different encoder is not
     assert "whisper-small" in speech_path_for(v)
     assert speech_path_for(v, "openai/whisper-large-v3") != speech_path_for(v)
+
+
+# --- OCR --------------------------------------------------------------------
+
+def test_text_index_is_a_sibling_and_names_its_engine():
+    from framesieve.api import index_path_for
+    from framesieve.audio import speech_path_for
+    from framesieve.ocr import text_path_for
+
+    v = "/tmp/talk.mp4"
+    paths = {index_path_for(v), speech_path_for(v), text_path_for(v)}
+    assert len(paths) == 3, "the three passes must not overwrite each other"
+    assert text_path_for(v).endswith(".text.lance")
+
+
+def test_ocr_rejects_a_bad_every():
+    from framesieve.ocr import build_text_index
+
+    with pytest.raises(ValueError, match="every must be"):
+        build_text_index("/tmp/nope.mp4", every="sometimes")
+
+
+def test_timed_text_round_trips_with_its_kind(tmp_path):
+    """A loaded index has to still know whether it holds speech or on-screen
+    text, because that becomes the `source` on every hit it produces."""
+    from framesieve.timedtext import TimedText, TimedTextIndex
+
+    segs = [TimedText(0.0, 2.0, "hello"), TimedText(2.0, 4.0, "world")]
+    emb = np.eye(2, 4, dtype=np.float32)
+    for kind in ("speech", "text"):
+        p = str(tmp_path / f"{kind}.lance")
+        TimedTextIndex(segs, emb, kind, {"a": 1}).save(p)
+        back = TimedTextIndex.load(p)
+        assert back.kind == kind
+        assert back.texts == ["hello", "world"]
+        assert back.meta["a"] == 1
+        assert np.allclose(back.emb, emb)
+        assert back.starts.tolist() == [0.0, 2.0]

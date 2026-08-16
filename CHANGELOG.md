@@ -47,6 +47,22 @@ None of this changes any existing number: single-video search is still a numpy
 matrix multiply and never touches LanceDB, and the benchmark harnesses read the
 same `.npz` sidecars they always did.
 
+### On-screen text search
+`framesieve index --ocr` reads the text in the frames and indexes it, so
+`source="text"` reaches a caption, a slide title or a scoreboard — which the
+retrieval stage cannot: it scores R@1 3.4 on MomentSeeker's OCR split, close to
+chance.
+
+Roughly 120 ms a frame, so `--ocr-every segment` (the default) reads one frame
+per shot instead of every frame, reusing the redundancy the index already found:
+2,255 frames became 547 reads on the test video, about 1.5 min per video-hour.
+`--ocr-every frame` reads all of them for footage whose text changes under a
+still picture.
+
+Speech and OCR share one container, `framesieve.timedtext` — they arrive by
+different routes and are the same thing once they arrive — and `search` merges
+any number of sources rather than two.
+
 ### Speech search
 `framesieve index --audio` / `index(video, audio=True)` transcribes with Whisper
 and indexes the timed segments beside the frames, at about 11x realtime. Search
