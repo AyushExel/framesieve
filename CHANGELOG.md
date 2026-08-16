@@ -47,6 +47,22 @@ None of this changes any existing number: single-video search is still a numpy
 matrix multiply and never touches LanceDB, and the benchmark harnesses read the
 same `.npz` sidecars they always did.
 
+### Speech search
+`framesieve index --audio` / `index(video, audio=True)` transcribes with Whisper
+and indexes the timed segments beside the frames, at about 11x realtime. Search
+takes `source="visual"`, `"speech"`, or the default, which uses whatever the
+index has.
+
+The two are never ranked against each other: a frame similarity and a sentence
+similarity are different quantities on different scales. Each modality is ranked
+within itself and the two are merged on time, so a frame hit and a transcript hit
+on the same moment return once as `source="both"` and are promoted — agreement
+between independent signals beats either list's leader. Every `Hit` carries
+`.source` and, for speech, `.text`.
+
+Frames use SigLIP and speech uses a sentence encoder, because SigLIP's text tower
+is built to sit beside images and is a poor text-to-text matcher.
+
 ### One index format
 Indexes are Lance datasets, not compressed npz. Same container as the frame
 store and `Collection`, so there is one format rather than three; opens 4x

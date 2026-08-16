@@ -101,6 +101,46 @@ curve  = video.score("a red car")          # similarity for every frame
 index needs torch; *reading* one does not, so you can ship indexes to machines
 with no GPU and search them there.
 
+### Searching what was said
+
+A frame encoder cannot hear. On a meeting, a lecture, an interview or most of
+YouTube, the thing you want was spoken rather than shown — so `--audio`
+transcribes with Whisper and indexes the timed segments alongside the frames.
+
+```bash
+pip install "framesieve[audio]"
+framesieve index my_video.mp4 --audio        # ~11x realtime
+framesieve search my_video.mp4 "the part about pricing"
+```
+
+```python
+video = fs.open("talk.mp4")
+
+video.search("a drone flying")                     # both, merged
+video.search("a drone flying", source="visual")    # frames only
+video.search("a drone flying", source="speech")    # transcript only
+
+for hit in video.search("someone shooting a hoop"):
+    print(hit.timecode, hit.source, hit.text or "")
+```
+
+A frame similarity and a sentence similarity are **not the same quantity**, so
+they are never ranked against each other. Each modality is ranked within itself,
+and the two are merged on *time*: when a frame hit and a transcript hit land on
+the same moment it comes back once, marked `source="both"`, and promoted —
+because agreement between two independent signals is worth more than either
+one's leader.
+
+```
+"someone shooting a basketball hoop"
+   0:20:40  both     0.157  at a half court and if you make it you're safe
+   0:14:33  visual   0.096
+   0:35:47  speech   0.600  I should have gathered...
+```
+
+Every hit carries `.source` (`visual` / `speech` / `both`) and `.text` when a
+transcript matched, so you always know which signal found it.
+
 ### Searching a whole library
 
 Everything above holds one video's vectors in memory, which is right up to a few
@@ -220,7 +260,6 @@ Does not work today:
   close to invisible to it.
 - **Where something is in the frame.** "the cup on the left" does not work — it
   matches whole frames, not regions.
-- **Anything you can hear.** No audio, no speech.
 
 Not what it is for, and not planned:
 
@@ -230,14 +269,16 @@ Not what it is for, and not planned:
 
 ### Wanted
 
-The first three above are additions, not redesigns, and the pieces are separable
-enough that they are good first contributions:
+Both are additions rather than redesigns, and separable enough to be good first
+contributions:
 
-- **Audio.** A speech transcript indexed alongside the frames would cover a large
-  share of what people actually ask recordings.
-- **OCR.** A text-detection pass over the candidate frames, after retrieval
+- **OCR.** A text-detection pass over the candidate frames, *after* retrieval
   narrows them down — which is the whole point of the cascade.
-- **Region-level matching**, for "on the left" style queries.
+- **Region-level matching**, for "on the left" style queries. The hardest of the
+  three: it needs an embedding per region rather than per frame, which changes
+  the index size and the storage story.
+
+Speech used to be on this list; it is now `--audio`.
 
 Open an issue if you want to take one on.
 

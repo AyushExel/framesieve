@@ -133,10 +133,31 @@ Recall keeps climbing and so does the bill; there is no k at which you have
   cannot read. On MomentSeeker's OCR split it scores R@1 3.4.
 - **Where in the frame.** "the cup on the left" scores 3.8. Global embeddings
   have no spatial handle.
-- **Anything audio.** No speech, no sound. Frames only.
 - **Whole-video questions.** "How many times does X happen?" needs coverage, not
   relevance; on Video-MME every selection strategy landed inside every other's
   confidence interval, and the frame budget dominated.
+
+## Speech
+
+`--audio` transcribes the video with Whisper and indexes the timed segments, so
+things that were said become searchable alongside things that were shown:
+
+```bash
+pip install "framesieve[audio]"
+framesieve index talk.mp4 --audio
+framesieve search talk.mp4 "the part about pricing" --source speech
+```
+
+```python
+video = fs.open("talk.mp4")
+for hit in video.search("a drone flying"):      # both modalities, merged
+    print(hit.timecode, hit.source, hit.text or "")
+```
+
+`source="visual"` and `source="speech"` restrict it to one. The two are never
+ranked against each other — a frame similarity and a sentence similarity are
+different quantities — but when both point at the same moment it comes back once
+as `source="both"`, which is the strongest signal either can give you.
 
 ## More than one video
 

@@ -71,7 +71,8 @@ def cmd_index(args) -> int:
     _err(f"indexing {args.video}")
     t0 = time.perf_counter()
     v = api.index(args.video, encoder=args.encoder, fps=args.fps,
-                  device=args.device, store=use_store, size=args.size,
+                  device=args.device, store=use_store, audio=args.audio,
+                  language=args.language, size=args.size,
                   batch=args.batch, segment_tau=args.segment_tau,
                   pixel_gate_tau=args.pixel_gate_tau,
                   gpu_decode=args.gpu_decode, seed=args.seed,
@@ -89,6 +90,8 @@ def cmd_index(args) -> int:
     # a long one. Reporting only the wall clock makes a 90-second test look slow.
     _err(f"  {v.stats.realtime_factor:.0f}x realtime encoding, "
          f"{dt:.1f} s total for {hours:.2f} h including model load")
+    if v.has_speech:
+        _err(f"  transcript: {len(v.speech)} segments")
     if args.json:
         print(json.dumps({"index": v.path, "store": use_store,
                           "megabytes": round(mb, 2), "frames": len(v),
@@ -109,9 +112,15 @@ def cmd_search(args) -> int:
         _err(str(e))
         return 2
 
-    hits = video.search(args.query, k=args.budget, confirm=not args.no_refine,
-                        question=args.question, strategy=args.strategy,
-                        tokens_per_frame=args.tokens_per_frame, seed=args.seed)
+    try:
+        hits = video.search(args.query, k=args.budget,
+                            confirm=not args.no_refine, source=args.source,
+                            question=args.question, strategy=args.strategy,
+                            tokens_per_frame=args.tokens_per_frame,
+                            seed=args.seed)
+    except ValueError as e:
+        _err(f"error: {e}")
+        return 2
 
     if args.json:
         print(json.dumps({
@@ -160,16 +169,22 @@ def _print_hits(video, hits, args) -> None:
 
     # only show the similarity column separately when there is a VLM verdict to
     # compare it against; otherwise it is the same number printed twice
+    mixed = any(h.source != "visual" for h in shown)
+    cols = f"  {'time':>12}  {'hh:mm:ss':>10}"
     if hits.confirmed:
-        print(f"  {'time':>12}  {'hh:mm:ss':>10}  {'vlm score':>12}  "
-              f"{'similarity':>11}")
-        for h in shown[: args.top]:
-            print(f"  {h.time:>12.1f}  {h.timecode:>10}  "
-                  f"{h.vlm_score:>12.2f}  {h.score:>11.3f}")
-    else:
-        print(f"  {'time':>12}  {'hh:mm:ss':>10}  {'similarity':>12}")
-        for h in shown[: args.top]:
-            print(f"  {h.time:>12.1f}  {h.timecode:>10}  {h.score:>12.3f}")
+        cols += f"  {'vlm score':>12}"
+    cols += f"  {'similarity':>11}"
+    if mixed:
+        cols += f"  {'source':<8}  what was said"
+    print(cols)
+    for h in shown[: args.top]:
+        row = f"  {h.time:>12.1f}  {h.timecode:>10}"
+        if hits.confirmed:
+            row += f"  {'' if h.vlm_score is None else f'{h.vlm_score:.2f}':>12}"
+        row += f"  {h.score:>11.3f}"
+        if mixed:
+            row += f"  {h.source:<8}  {(h.text or '')[:52]}"
+        print(row)
 
 
 def _save_frames(video, hits, out_dir: str) -> None:
@@ -261,6 +276,13 @@ def build_parser() -> argparse.ArgumentParser:
                         "(needs pylance)")
     p.add_argument("--jpeg-quality", type=int, default=90,
                    help="quality for --store (default: %(default)s)")
+    p.add_argument("--audio", action="store_true",
+                   help="also transcribe the audio with Whisper and index the "
+                        "timed segments, so `search --source speech` can reach "
+                        "what was said. ~11x realtime (needs framesieve[audio])")
+    p.add_argument("--language", default=None,
+                   help="force a transcription language, e.g. en; "
+                        "auto-detected otherwise")
     p.add_argument("--force", action="store_true", help="rebuild if it exists")
     p.set_defaults(fn=cmd_index)
 
@@ -292,6 +314,10 @@ def build_parser() -> argparse.ArgumentParser:
                    help="visual tokens per frame for the VLM; lower is cheaper")
     s.add_argument("--save-frames", default=None, metavar="DIR",
                    help="write the reported frames as JPEGs")
+    s.add_argument("--source", default=None,
+                   choices=["visual", "speech", "both"],
+                   help="search frames, the transcript, or whatever the index "
+                        "has (the default)")
     s.add_argument("--build-missing", action="store_true",
                    help="index the video first if it has no index yet")
     s.set_defaults(fn=cmd_search)

@@ -46,8 +46,12 @@ vlm = ["accelerate>=0.30", "pillow>=10.0"]
 # searching across many videos at once: LanceDB on top of the same Lance
 # datasets a single video already writes
 collection = ["lancedb>=0.13"]
+# transcribing the audio and indexing what was said. The ASR model comes from
+# transformers, which is already core; this is the sentence encoder's tokenizer
+# and the audio resampler.
+audio = ["sentencepiece>=0.2", "protobuf>=4.25"]
 dev = ["pytest>=7.4", "ruff>=0.6", "matplotlib>=3.8"]
-all = ["framesieve[vlm,collection]"]
+all = ["framesieve[vlm,collection,audio]"]
 
 [project.urls]
 Homepage = "https://github.com/AyushExel/framesieve"
