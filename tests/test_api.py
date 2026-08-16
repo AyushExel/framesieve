@@ -344,3 +344,25 @@ def test_collapse_keeps_the_best_of_each_run():
 
     one_each = Collection._collapse(hits, k=5, min_gap_s=0, per_video=1)
     assert [h.video for h in one_each] == ["a.mp4", "b.mp4"]
+
+
+@needs_lancedb
+def test_reopening_a_collection_finds_what_is_already_in_it(tmp_path):
+    """The create path and the reopen path are different code, and only the
+    second one goes through table discovery -- which is where a lancedb API
+    change silently made every existing collection look empty."""
+    from framesieve.collection import Collection
+
+    uri = str(tmp_path / "reopen.lancedb")
+    rng = np.random.default_rng(1)
+    e = rng.normal(size=(20, 8)).astype(np.float32)
+    e /= np.linalg.norm(e, axis=1, keepdims=True)
+
+    first = Collection(uri)
+    first._append("a.mp4", np.arange(20, dtype=np.float32), e)
+    assert len(first) == 20
+
+    again = Collection(uri)                 # a fresh handle, as a new process gets
+    assert len(again) == 20, "reopened collection came back empty"
+    assert again.videos() == ["a.mp4"]
+    assert len(again.search(e[0], k=3, exact=True, min_gap_s=0)) == 3

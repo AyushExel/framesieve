@@ -37,9 +37,15 @@ which video as well as when. Measured on 10M vectors (2,778 video-hours, 62 GB):
 112 ms per query at 5.5 GB peak resident, against 31 GB to hold the same vectors
 in memory. Runs under an 8 GB cap; OOM-killed at 4 GB.
 
-Defaults to `IvfHnswFlat`. The quantized index types are unusable on these
-embeddings — IvfPq scores 0% recall@20 and IvfRq 24%, because the similarities
-being ranked span a band narrower than the quantization error.
+Defaults to `IvfHnswFlat` at `nprobes=50`, which returns the same top hit as an
+exact scan on 15 of 15 test queries in 10 ms. `IvfFlat` needs `nprobes=400` and
+81 ms to match that. The quantized index types are unusable on these embeddings
+— `IvfPq` scores 0% recall@20 and `IvfRq` 24%, because the similarities being
+ranked span a band narrower than the quantization error.
+
+None of this changes any existing number: single-video search is still a numpy
+matrix multiply and never touches LanceDB, and the benchmark harnesses read the
+same `.npz` sidecars they always did.
 
 ### Runs without a GPU
 CUDA if there is one, Apple silicon if there is one, CPU otherwise. Indexing an

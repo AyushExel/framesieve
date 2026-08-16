@@ -133,22 +133,26 @@ Not constant memory — graph traversal has a real working set — but about 6×
 less than holding the corpus, which is the difference between a 2,778-hour
 library running on a laptop and not running at all.
 
-On a 205-hour corpus of genuinely distinct video, recall@20 against an exact
-scan is **89%** at 5 ms per query, against 133 ms to scan everything. One
-warning worth having: the quantized index types **do not work** on these
-embeddings. The best similarity across 205 hours is 0.16 and neighbours differ
-in the third decimal, so product quantization has nothing left to rank with:
+On a 205-hour corpus of genuinely distinct video, the measure that matters is
+whether the **top hit** matches an exact scan — 15 queries, exact scan as the
+answer key:
 
-| index | size | recall@20 | latency |
+| index | size | top hit correct | latency |
 |---|---|---|---|
-| **IvfHnswFlat** (default) | 2.3 GB | **89%** | 5 ms |
-| IvfHnswSq | 635 MB | 82% | 5 ms |
-| IvfFlat | 2.3 GB | 94% | 45 ms |
-| IvfRq | 86 MB | 24% | 7 ms |
-| IvfPq | 78 MB | **0%** | 13 ms |
+| **IvfHnswFlat** (default) | 2.3 GB | **15/15** | 10 ms |
+| IvfFlat | 2.3 GB | 9/15 | 16 ms |
+| IvfFlat, `nprobes=400` | 2.3 GB | 15/15 | 81 ms |
+| exact scan | — | 15/15 | 133 ms |
 
-`Collection.recall_at(queries)` runs that comparison on your own data, which is
-the only way to know where your corpus lands.
+IVF only matches the graph by probing half its partitions, for 8× the latency —
+partition scanning grows with `nprobes` and graph traversal does not.
+
+One warning worth having: the **quantized index types do not work** on these
+embeddings. The best similarity across 205 hours is 0.16 and neighbours differ
+in the third decimal, so quantization error swamps the signal being ranked.
+`IvfPq` scores **0%** recall@20 and `IvfRq` 24%, at every probe count and with
+refinement. Use `Collection.recall_at(queries)` to check where your own corpus
+lands.
 
 ```bash
 pip install "framesieve[collection]"

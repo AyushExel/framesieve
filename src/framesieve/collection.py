@@ -109,11 +109,21 @@ class Collection:
         self._device = device
         self._db = lancedb.connect(uri)
         self._enc = None
-        # list_tables() on new lancedb, table_names() on old: supporting both
-        # keeps the floor at 0.13 without deprecation noise on 0.37
-        names = (self._db.list_tables() if hasattr(self._db, "list_tables")
-                 else self._db.table_names())
-        self._tbl = self._db.open_table(TABLE) if TABLE in names else None
+        self._tbl = self._db.open_table(TABLE) if self._has_table() else None
+
+    def _has_table(self) -> bool:
+        """Does this database already hold our table?
+
+        lancedb 0.37 deprecates table_names() in favour of list_tables(), which
+        returns a ListTablesResponse rather than a list -- so `TABLE in names`
+        against it is quietly always False, and reopening an existing collection
+        reports it as empty. Unwrap the response, and fall back for older
+        versions that only have table_names().
+        """
+        listed = getattr(self._db, "list_tables", None)
+        names = listed() if listed is not None else self._db.table_names()
+        names = getattr(names, "tables", names)
+        return TABLE in list(names)
 
     # -- properties --------------------------------------------------------
 
@@ -206,6 +216,20 @@ class Collection:
     # signal being ranked. That is a property of the embeddings, not of LanceDB,
     # and it is why the default here is an unquantized graph rather than the
     # usual IVF_PQ advice.
+    #
+    # recall@20 is the wrong headline, though, and it ranks these backwards.
+    # What a caller acts on is the top hit after runs are collapsed, and on that
+    # measure -- 15 queries, does the top moment match an exact scan --
+    # IvfHnswFlat beats IvfFlat outright:
+    #
+    #   nprobes         20    50   100   200   400
+    #   IvfFlat        6/15  9/15 11/15 12/15 15/15   at 81 ms
+    #   IvfHnswFlat   14/15 15/15 15/15 15/15 15/15   at 10 ms, flat
+    #
+    # IVF only matches the graph by probing half its partitions, for 8x the
+    # latency, because partition scanning grows with nprobes and graph traversal
+    # does not. Hence nprobes defaults to 50: one more correct answer than 20,
+    # at the same cost.
     INDEXES = {
         "hnsw": "IvfHnswFlat",     # best recall per millisecond
         "hnsw_sq": "IvfHnswSq",    # a quarter of the disk, ~7 points of recall
@@ -253,7 +277,7 @@ class Collection:
 
     def search(self, query: str | np.ndarray, k: int = 20, *,
                video: str | None = None, exact: bool = False,
-               nprobes: int = 20, min_gap_s: float = 30.0,
+               nprobes: int = 50, min_gap_s: float = 30.0,
                per_video: int | None = None) -> list[CollectionHit]:
         """The k best moments anywhere in the collection.
 
@@ -306,7 +330,7 @@ class Collection:
                 break
         return kept
 
-    def recall_at(self, queries: list, k: int = 20, nprobes: int = 20) -> float:
+    def recall_at(self, queries: list, k: int = 20, nprobes: int = 50) -> float:
         """What the approximate index costs, on your data rather than in general.
 
         Runs each query both ways and reports the share of the exact top-k that
