@@ -20,7 +20,7 @@ is not an option. Running a vision model over every frame is 86,400 calls per da
 of video, so that is not an option either.
 
 framesieve indexes the video **once**, in about 15 seconds per hour, and then
-finds things in it in about **25 milliseconds**.
+finds things in it in about **6 milliseconds**.
 
 ```bash
 pip install framesieve
@@ -30,12 +30,12 @@ framesieve search my_video.mp4 "a red car pulling in"
 ```
 
 **No GPU required.** Indexing an hour of video takes a minute or two on a
-laptop CPU instead of fifteen seconds on a GPU, and searching is the same speed
-either way.
+laptop CPU instead of fifteen seconds on a GPU, and a search is ~110 ms instead
+of ~6 ms — still interactive.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="figures/at_a_glance.dark.png">
-  <img alt="15 seconds to index an hour of video and 5 MB, measured over 205 hours. 25 milliseconds to search all 4.5 hours, the same with or without a GPU. 26 times what sampling every Nth frame finds, at the same 32 model calls." src="figures/at_a_glance.light.png">
+  <img alt="15 seconds to index an hour of video and 5 MB, measured over 205 hours. 6 milliseconds to search all 4.5 hours on a GPU, about 110 milliseconds on CPU. 26 times what sampling every Nth frame finds, at the same 32 model calls." src="figures/at_a_glance.light.png">
 </picture>
 
 ## Try it
@@ -69,7 +69,7 @@ timing   : select 141.2 ms, fetch 0.31 s, vlm 0.70 s
 
 Every one of those sixteen candidates came back confirmed. `select` includes
 loading the text encoder, which happens once per process — in a long-running
-program a query costs about 25 ms.
+program a query costs about 6 ms.
 
 Add `--save-frames hits/` to write the matching frames out as JPEGs.
 
@@ -103,10 +103,19 @@ with no GPU and search them there.
 
 ### Searching a whole library
 
-One video fits in memory. A corpus does not — at 1 fps a video-hour is 3,600
-vectors, so 10,000 hours is 36 million of them and 55 GB. `Collection` puts them
-in [LanceDB](https://lancedb.com) instead, on disk, with a vector index over
-them:
+Everything above holds one video's vectors in memory, which is right up to a few
+hundred hours. Past that — or as soon as you want to search *across* recordings
+rather than within one — switch to a `Collection`, which is the same vectors in
+[LanceDB](https://lancedb.com) on disk.
+
+| footage | vectors | as a numpy array | |
+|---|---|---|---|
+| 100 hours | 360,000 | 1.1 GB | stay on `fs.open()` |
+| **500 hours** | 1.8M | **5.5 GB** | around here, switch |
+| 10,000 hours | 36M | 110 GB | `Collection`, or nothing |
+
+You do not re-encode anything to switch: a collection is built by merging the
+sidecars you already have.
 
 ```python
 lib = fs.Collection("footage.lancedb")
@@ -159,6 +168,18 @@ pip install "framesieve[collection]"
 python examples/04_search_a_whole_corpus.py ./footage "a red car"
 ```
 
+The two compose, and that is the usual shape: search the library to find *which*
+recording, then use the per-video index to spend expensive-model calls inside it.
+
+```python
+hit   = lib.search("a red car", k=5, per_video=1)[0]     # which recording
+video = fs.open(hit.video)                               # then work inside it
+best  = video.search("a red car", k=32, confirm=True)    # with the VLM
+```
+
+Full guide, including where the threshold is and which index type to use:
+**[Scaling to a library](docs/scaling.md)**.
+
 ### Running on CPU
 
 Everything picks CUDA if there is one, Apple silicon if there is one, and CPU
@@ -167,18 +188,19 @@ small enough that CPU is a real option rather than a degraded mode:
 
 | | index 1 hour of video | search |
 |---|---|---|
-| GPU (GH200) | 15 s | 25 ms |
-| CPU (64 cores) | 1 min | 25 ms |
-| CPU (8 threads) | ~2 min | 25 ms |
+| GPU (GH200) | 15 s | 6 ms |
+| CPU (64 cores) | 1 min | 110 ms |
 
-Search is the same speed either way, because it is a matrix multiply against an
-index that already exists. The one part that really wants a GPU is
-`confirm=True`, which runs a 7B vision-language model; everything else is
-comfortable without one.
+Ranking is the same either way — a matrix multiply against an index that already
+exists, 0.03 ms for a 4.5-hour video. The difference is encoding your query
+text, which is a model forward pass: about 1 ms on a GPU and 100 ms on a CPU.
+Still interactive, just not instant. The one part that really wants a GPU is
+`confirm=True`, which runs a 7B vision-language model.
 
 **[Quickstart](docs/quickstart.md)** ·
 **[API reference](docs/api.md)** ·
 **[How it works](docs/how-it-works.md)** ·
+**[Scaling to a library](docs/scaling.md)** ·
 **[Examples](examples/)**
 
 ## What it's for

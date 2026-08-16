@@ -47,6 +47,17 @@ None of this changes any existing number: single-video search is still a numpy
 matrix multiply and never touches LanceDB, and the benchmark harnesses read the
 same `.npz` sidecars they always did.
 
+### Search is 4x faster
+A float16 to float32 cast was running on every query rather than once per index:
+17.13 ms of a 17.42 ms search on a 4.5-hour video, against 0.03 ms for the
+matrix multiply it fed. Cached on `FrameIndex.emb32`, so a search over 16,244
+frames goes from 24.6 ms to 6.3 ms, of which 5.2 ms is now encoding the query
+text. Results are unchanged.
+
+The cache costs 4 bytes per dimension per frame — 50 MB for 4.5 hours, 1.1 GB
+for a hundred — which is the same arithmetic that decides when to move to a
+`Collection`.
+
 ### Runs without a GPU
 CUDA if there is one, Apple silicon if there is one, CPU otherwise. Indexing an
 hour of video takes about 1 minute on 64 CPU cores and 2 minutes on 8 threads,

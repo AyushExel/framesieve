@@ -168,7 +168,7 @@ def at_a_glance(mode: str = "light") -> str:
     t = THEME[mode]
     cards = [
         ("15 s", "to index an hour of video", "and 5 MB, measured over 205 h"),
-        ("25 ms", "to search all 4.5 hours", "the same with or without a GPU"),
+        ("6 ms", "to search all 4.5 hours", "on a GPU; about 110 ms on CPU"),
         ("26×", "what sampling every Nth frame finds", "at the same 32 model calls"),
     ]
     fig, axes = plt.subplots(1, 3, figsize=(13.0, 2.05))

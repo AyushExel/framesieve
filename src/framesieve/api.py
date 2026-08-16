@@ -210,10 +210,19 @@ class VideoIndex:
     def embeddings(self) -> np.ndarray:
         """The frame embeddings, L2-normalised, one row per indexed frame.
 
-        Returned as float32 so arithmetic on them behaves; they are stored as
-        float16 because that halves the sidecar and costs nothing measurable.
+        Stored as float16, because that halves the sidecar and costs nothing
+        measurable. Returned as float32 so arithmetic on them behaves -- and
+        cached, because that cast was the entire cost of a search: 17.13 ms of
+        17.42 ms on a 4.5-hour video, against 0.03 ms for the matmul it feeds.
+        Paying it once per index instead of once per query is a 500x difference
+        on everything after the first.
+
+        The cache costs RAM: 4 bytes a dimension a frame, so about 50 MB for a
+        4.5-hour video and 1.1 GB for a hundred hours. Past a few hundred hours
+        that is the wrong trade and `Collection` is the answer -- see
+        docs/scaling.md.
         """
-        return self._index.emb.astype(np.float32)
+        return self._index.emb32
 
     @property
     def frame_index(self) -> FrameIndex:

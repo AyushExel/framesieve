@@ -171,6 +171,65 @@ naive answer returns `k` near-copies of one moment.
 
 ---
 
+## `Collection` — many videos at once
+
+`VideoIndex` is one video in memory. `Collection` is any number of them in
+LanceDB, on disk. **[When and how to switch](scaling.md)** covers the decision;
+this is the surface.
+
+```python
+lib = fs.Collection("library.lancedb")      # created if it does not exist
+```
+
+| | |
+|---|---|
+| `len(lib)` | frames in the collection |
+| `.videos()` | the video paths in it |
+| `.uri` | where it lives |
+
+### `.add(video, **kwargs)` / `.add_index(path)` / `.add_indexes(glob)`
+
+`add` indexes a video and appends it, and needs torch. `add_index` appends a
+`.npz` sidecar that already exists and needs nothing — which is how a corpus is
+loaded, since indexing is the expensive half and it is per-video.
+
+```python
+lib.add_indexes("footage/*.npz")     # merge what you already built
+lib.add("new_camera.mp4")            # or index straight in
+```
+
+### `.build_ann(kind="hnsw", *, num_partitions=None, metric="cosine")`
+
+Build the vector index. Do this **once, after the bulk load** — until you do,
+every search scans the whole table.
+
+`kind` is `"hnsw"` (default), `"hnsw_sq"`, `"flat"` or `"sq"`. The default gets
+the same top hit as an exact scan on 15 of 15 test queries in 10 ms; `"flat"`
+needs `nprobes=400` and 81 ms to match it. The quantized types are **unusable**
+on these embeddings — see [scaling.md](scaling.md).
+
+### `.search(query, k=20, *, video=None, exact=False, nprobes=50, min_gap_s=30.0, per_video=None) -> list[CollectionHit]`
+
+The k best moments anywhere in the collection.
+
+- **`video`** — restrict to one video; a filter, not a separate index
+- **`exact`** — scan everything instead of using the index. Slower, and what to
+  compare against
+- **`min_gap_s`** — collapse hits closer together than this within a video. At
+  1 fps consecutive frames are near-identical, so without it a top-5 is one
+  moment five times. `0` disables
+- **`per_video`** — at most this many hits from any one video
+
+`CollectionHit` carries `.video`, `.time`, `.timecode` and `.score`.
+
+### `.recall_at(queries, k=20, nprobes=50) -> float`
+
+Run each query both exactly and approximately, and report the share of the exact
+top-k the approximate search also found. Worth doing once per corpus: the right
+`nprobes` is a property of how your vectors are distributed, not a constant.
+
+---
+
 ## `framesieve.pooling`
 
 Independent of everything above: numpy only, imports nothing else from this

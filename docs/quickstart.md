@@ -138,10 +138,30 @@ Recall keeps climbing and so does the bill; there is no k at which you have
   relevance; on Video-MME every selection strategy landed inside every other's
   confidence interval, and the frame budget dominated.
 
+## More than one video
+
+Everything above is one video, held in memory. That is right up to a few hundred
+hours; past that, or as soon as you want to search *across* recordings rather
+than within one, move to a `Collection` — the same vectors in LanceDB on disk:
+
+```python
+lib = fs.Collection("library.lancedb")
+lib.add_indexes("footage/*.npz")     # merge indexes you already built
+lib.build_ann()
+
+for hit in lib.search("a red car", k=20):
+    print(hit.video, hit.timecode, hit.score)
+```
+
+You do not re-encode anything to switch. See
+**[Scaling to a library](scaling.md)** for where the threshold is, what it costs,
+and which index type to use — the usual `IVF_PQ` advice does not work here.
+
 ## Next
 
 - [How it works](how-it-works.md) — the cascade, the cost model, and why the
   index is small
 - [API reference](api.md)
+- [Scaling to a library](scaling.md) — many videos, on disk
 - [Search a day of video in a second](https://batchnorm.com) — the measurements behind all
   of this, including what failed

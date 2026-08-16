@@ -6,6 +6,8 @@
   selection strategies, and `framesieve.pooling`
 - **[How it works](how-it-works.md)** — the cascade, the cost model, why the
   index is small, and what this is not
+- **[Scaling to a library](scaling.md)** — when to move from a per-video index
+  in memory to LanceDB on disk, and how
 - **[METHOD.md](METHOD.md)** — measurement protocol and the traps that produced
   silently wrong results before they were caught
 - **[frame-access.md](frame-access.md)** — the three ways to get a frame back by

@@ -79,6 +79,24 @@ class FrameIndex:
         self.stats = stats
         self._seg_cache: tuple | None = None
         self._adj: np.ndarray | None = None
+        self._emb32: np.ndarray | None = None
+
+    @property
+    def emb32(self) -> np.ndarray:
+        """The embeddings as float32, cast once and kept.
+
+        Storing float16 halves the sidecar and costs nothing measurable, but
+        casting on every query cost everything: 17.1 ms of a 17.4 ms search on a
+        4.5-hour video, against 0.03 ms for the matmul it feeds. Anything on the
+        query path wants this rather than `emb.astype(np.float32)`.
+
+        The cache is 4 bytes a dimension a frame -- 50 MB for 4.5 hours, 1.1 GB
+        for a hundred. Past a few hundred hours that trade stops making sense
+        and `framesieve.Collection` is the answer; see docs/scaling.md.
+        """
+        if self._emb32 is None:
+            self._emb32 = self.emb.astype(np.float32)
+        return self._emb32
 
     # -- segments ----------------------------------------------------------
 
@@ -100,7 +118,7 @@ class FrameIndex:
         become a *query-time* decision rather than an index-time one.
         """
         if getattr(self, "_adj", None) is None:
-            e = self.emb.astype(np.float32)
+            e = self.emb32
             self._adj = np.einsum("ij,ij->i", e[:-1], e[1:])
         return self._adj
 
@@ -124,7 +142,7 @@ class FrameIndex:
     def segment_reps(self) -> np.ndarray:
         """L2-normalised mean embedding per segment."""
         starts, ends, _, _ = self.segments()
-        e = self.emb.astype(np.float32)
+        e = self.emb32
         reps = np.stack([e[s:t].mean(0) for s, t in zip(starts, ends)])
         return reps / (np.linalg.norm(reps, axis=1, keepdims=True) + 1e-8)
 
