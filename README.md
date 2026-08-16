@@ -1,6 +1,6 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="figures/banner.dark.png">
-  <img alt="framesieve — search long video without running a VLM on every frame. Six tunnel frames found across 4.5 hours of footage, and a timeline showing that uniform sampling hit 1 of 60 tunnels with the same 32 model calls while framesieve hit 25." src="figures/banner.light.png">
+  <img alt="framesieve — find things in video by describing them. Four searches of one 4.5-hour video: a station platform, a stone viaduct, the sea, and a red signal light, each returning the correct frame with a timestamp and the vision-language model's confirmation score." src="figures/banner.light.png">
 </picture>
 
 <p align="center">
@@ -198,7 +198,16 @@ indexing 14× cheaper:
 
 Against a 4.5-hour video with every frame checked by a model, framesieve finds
 **26× more** of what you asked for than sampling every Nth frame does, at the
-same cost.
+same cost. Searching that video for `"a dark tunnel"` with a budget of 32 model
+calls:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="figures/coverage.dark.png">
+  <img alt="Timeline of a 4.5-hour video. Grey ticks mark 60 tunnels. Sampling every Nth frame spent 32 model calls evenly and hit 1 of them; framesieve spent the same 32 calls and hit 25." src="figures/coverage.light.png">
+</picture>
+
+Both spent the same 32 calls. Over 200 random offsets, sampling every Nth frame
+finds nothing at all 70% of the time.
 
 The measurements behind all of this, and the several approaches that did not
 work: **[the write-up](https://batchnorm.com)**.
