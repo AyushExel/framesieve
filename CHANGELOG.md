@@ -29,6 +29,12 @@ First public release.
 - Against dense-VLM ground truth on a 4.5 h video, 26× the event recall of
   uniform sampling at 32 model calls.
 
+### Runs without a GPU
+CUDA if there is one, Apple silicon if there is one, CPU otherwise. Indexing an
+hour of video takes about 1 minute on 64 CPU cores and 2 minutes on 8 threads,
+against 15 seconds on a GH200; search is ~25 ms either way. Only the VLM confirm
+stage really wants a GPU.
+
 ### Known limitations
 - One GPU, h.264 input, English queries.
 - The retrieval encoder is caption-trained: phrase queries as captions

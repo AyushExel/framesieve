@@ -2,14 +2,19 @@
 
 ## Install
 
-`torch` first, from the index for your platform. Installing it as a transitive
-dependency is the most common way to end up on a CPU-only wheel, which is silent
-and about 30× slower.
+`torch` first, from the index for your platform. If you have a GPU, installing
+torch as a transitive dependency is the most common way to end up on a CPU-only
+wheel by accident — silent, and much slower than the card you paid for.
 
 ```bash
 pip install torch --index-url https://download.pytorch.org/whl/cu128   # your CUDA
 pip install framesieve
 ```
+
+No GPU is fine. Everything picks CUDA if there is one, Apple silicon if there is
+one, and CPU otherwise; on CPU, indexing an hour of video takes a minute or two
+instead of fifteen seconds, and search is the same either way. Only the
+`--confirm` stage really wants a GPU, because that is a 7B model.
 
 You also need `ffmpeg` on your `PATH`, with h.264 support:
 

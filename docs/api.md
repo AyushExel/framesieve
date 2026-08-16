@@ -39,6 +39,7 @@ and 5 MB per hour** of video on one GPU. Needs torch.
 | `pixel_gate_tau` | `0.0` | skip encoding frames within this mean grey-level difference of the last kept one |
 | `start`, `duration` | `0.0` | index only part of the video, in seconds |
 | `gpu_decode` | `False` | decode with NVDEC: fewer CPU cores, slower wall clock on most hosts |
+| `device` | auto | `"cuda"`, `"mps"` or `"cpu"`; picks whichever is present |
 | `seed` | `0` | |
 
 ### `fs.load(path_or_video, *, video=None, encoder=..., fps=1.0)`

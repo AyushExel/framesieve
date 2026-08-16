@@ -46,12 +46,16 @@ class QwenYesNoScorer:
     PROMPT = ("Answer with exactly one word, Yes or No.\n"
               "Question: {q}")
 
-    def __init__(self, key: str = "qwen2.5-vl-7b", device: str = "cuda",
-                 dtype: torch.dtype = torch.bfloat16,
+    def __init__(self, key: str = "qwen2.5-vl-7b", device: str | None = None,
+                 dtype: torch.dtype | None = None,
                  max_pixels: int = 256 * 28 * 28, min_pixels: int = 64 * 28 * 28,
                  attn_impl: str | None = None):
         from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
 
+        from .encoders import pick_device, pick_dtype
+
+        device = pick_device(device)
+        dtype = pick_dtype(device, dtype)
         cfg = QWEN_MODELS[key]
         self.spec = VlmSpec(key=key, repo=cfg["repo"], revision=cfg["revision"],
                             max_pixels=max_pixels, min_pixels=min_pixels)

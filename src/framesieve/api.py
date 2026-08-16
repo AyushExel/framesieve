@@ -21,6 +21,10 @@ Three ideas are worth knowing before reading further.
                                loads on the first search, the vision-language
                                model only if you ask for `confirm=True`.
 
+    a GPU is optional          Everything picks CUDA when there is one, Apple
+                               silicon when there is one, and CPU otherwise.
+                               Pass device= to override.
+
     confirm= is the expensive  Retrieval alone is a matrix multiply, about a
     half                       millisecond. `confirm=True` fetches the surviving
                                frames and shows them to a real VLM, which costs
@@ -164,12 +168,13 @@ class VideoIndex:
 
     def __init__(self, frame_index: FrameIndex, video: str | None = None,
                  encoder: str = DEFAULT_ENCODER, vlm: str = DEFAULT_VLM,
-                 path: str | None = None):
+                 path: str | None = None, device: str | None = None):
         self._index = frame_index
         self.video = video or frame_index.stats.video
         self.path = path
         self._encoder_name = encoder
         self._vlm_name = vlm
+        self._device = device
         self._searcher: CascadeSearcher | None = None
         self._vlm = None
         self._fetcher = None
@@ -225,8 +230,9 @@ class VideoIndex:
                     "  Either install torch, or encode the query elsewhere and "
                     "pass the vector:  video.score(query_vector)"
                 ) from exc
-            self._searcher = CascadeSearcher(self._index,
-                                             SiglipEncoder(self._encoder_name))
+            self._searcher = CascadeSearcher(
+                self._index, SiglipEncoder(self._encoder_name,
+                                           device=self._device))
         return self._searcher
 
     def _query_vector(self, query: str | np.ndarray) -> np.ndarray:
@@ -253,7 +259,8 @@ class VideoIndex:
         if s.vlm is None:
             from .vlm import QwenYesNoScorer
             px = tokens_per_frame * 28 * 28 * 4
-            s.vlm = QwenYesNoScorer(self._vlm_name, max_pixels=px,
+            s.vlm = QwenYesNoScorer(self._vlm_name, device=self._device,
+                                    max_pixels=px,
                                     min_pixels=min(px, 64 * 28 * 28))
         if s.fetcher is None:
             if not self.video or not os.path.exists(str(self.video)):
@@ -350,7 +357,8 @@ class VideoIndex:
 
 
 def index(video: str, *, encoder: str = DEFAULT_ENCODER, fps: float = 1.0,
-          vlm: str = DEFAULT_VLM, save: bool = True, batch: int = 256,
+          vlm: str = DEFAULT_VLM, device: str | None = None,
+          save: bool = True, batch: int = 256,
           size: int = 256, segment_tau: float = 0.0,
           pixel_gate_tau: float = 0.0, start: float = 0.0,
           duration: float = 0.0, gpu_decode: bool = False, seed: int = 0,
@@ -363,12 +371,13 @@ def index(video: str, *, encoder: str = DEFAULT_ENCODER, fps: float = 1.0,
     if not os.path.exists(video):
         raise FileNotFoundError(video)
     from .encoders import SiglipEncoder
-    fi = build_index(video, SiglipEncoder(encoder), target_fps=fps, batch=batch,
+    fi = build_index(video, SiglipEncoder(encoder, device=device),
+                     target_fps=fps, batch=batch,
                      size=size, pixel_gate_tau=pixel_gate_tau,
                      segment_tau=segment_tau, start_s=start,
                      duration_s=duration, gpu_decode=gpu_decode, seed=seed,
                      verbose=verbose)
-    vi = VideoIndex(fi, video=video, encoder=encoder, vlm=vlm)
+    vi = VideoIndex(fi, video=video, encoder=encoder, vlm=vlm, device=device)
     if save:
         vi.save(index_path_for(video, encoder, fps))
     return vi
@@ -376,7 +385,7 @@ def index(video: str, *, encoder: str = DEFAULT_ENCODER, fps: float = 1.0,
 
 def load(path_or_video: str, *, video: str | None = None,
          encoder: str = DEFAULT_ENCODER, fps: float = 1.0,
-         vlm: str = DEFAULT_VLM) -> VideoIndex:
+         vlm: str = DEFAULT_VLM, device: str | None = None) -> VideoIndex:
     """Load an existing index, given either the sidecar or the video it came from.
 
     Needs no GPU and no model: an index is a small array file, and reading it is
@@ -391,11 +400,13 @@ def load(path_or_video: str, *, video: str | None = None,
     fi = FrameIndex.load(p)
     src = video or (path_or_video if not path_or_video.endswith(".npz")
                     else fi.stats.video)
-    return VideoIndex(fi, video=src, encoder=encoder, vlm=vlm, path=p)
+    return VideoIndex(fi, video=src, encoder=encoder, vlm=vlm, path=p,
+                      device=device)
 
 
 def open(video: str, *, encoder: str = DEFAULT_ENCODER, fps: float = 1.0,
-         vlm: str = DEFAULT_VLM, rebuild: bool = False, **kwargs) -> VideoIndex:
+         vlm: str = DEFAULT_VLM, device: str | None = None,
+         rebuild: bool = False, **kwargs) -> VideoIndex:
     """Load this video's index, building it first if it does not exist.
 
     The one call most programs want. Shadows the builtin inside this module
@@ -403,5 +414,7 @@ def open(video: str, *, encoder: str = DEFAULT_ENCODER, fps: float = 1.0,
     """
     p = index_path_for(video, encoder, fps)
     if os.path.exists(p) and not rebuild:
-        return load(p, video=video, encoder=encoder, fps=fps, vlm=vlm)
-    return index(video, encoder=encoder, fps=fps, vlm=vlm, **kwargs)
+        return load(p, video=video, encoder=encoder, fps=fps, vlm=vlm,
+                    device=device)
+    return index(video, encoder=encoder, fps=fps, vlm=vlm, device=device,
+                 **kwargs)

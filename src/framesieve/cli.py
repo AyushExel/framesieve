@@ -71,9 +71,10 @@ def cmd_index(args) -> int:
         return 0
 
     from .encoders import SiglipEncoder
-    enc = SiglipEncoder(args.encoder)
+    enc = SiglipEncoder(args.encoder, device=args.device)
     _err(f"indexing {args.video}")
-    _err(f"  encoder {enc.spec.repo} @ {enc.spec.revision}, {args.fps} fps")
+    _err(f"  encoder {enc.spec.repo} @ {enc.spec.revision}, {args.fps} fps, "
+         f"on {enc.device}")
     t0 = time.perf_counter()
 
     if use_store:
@@ -114,9 +115,10 @@ def cmd_search(args) -> int:
     from . import api
 
     try:
-        video = api.open(args.video, encoder=args.encoder, fps=args.fps,
-                         vlm=args.vlm) if args.build_missing else \
-            api.load(args.video, encoder=args.encoder, fps=args.fps, vlm=args.vlm)
+        opts = dict(encoder=args.encoder, fps=args.fps, vlm=args.vlm,
+                    device=args.device)
+        video = (api.open(args.video, **opts) if args.build_missing
+                 else api.load(args.video, **opts))
     except FileNotFoundError as e:
         _err(str(e))
         return 2
@@ -243,6 +245,8 @@ def build_parser() -> argparse.ArgumentParser:
     common.add_argument("--fps", type=float, default=1.0,
                         help="frames sampled per second of video "
                              "(default: %(default)s)")
+    common.add_argument("--device", default=None,
+                        help="cuda / mps / cpu (default: whichever is there)")
     common.add_argument("--seed", type=int, default=0)
     common.add_argument("--json", action="store_true",
                         help="machine-readable output on stdout")

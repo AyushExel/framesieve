@@ -97,6 +97,21 @@ curve  = video.score("a red car")          # similarity for every frame
 index needs torch; *reading* one does not, so you can ship indexes to machines
 with no GPU and search them there.
 
+### No GPU? Still fine
+
+Everything picks CUDA if there is one, Apple silicon if there is one, and CPU
+otherwise. The retrieval encoder is small, so CPU is a real option rather than a
+fallback:
+
+| | index 1 hour of video | search |
+|---|---|---|
+| GPU (GH200) | 15 s | 25 ms |
+| CPU (64 cores) | 1 min | 25 ms |
+| CPU (8 threads) | ~2 min | 25 ms |
+
+Only `confirm=True` really wants a GPU — that is a 7B vision-language model.
+Retrieval alone never needs one.
+
 **[Quickstart](docs/quickstart.md)** ·
 **[API reference](docs/api.md)** ·
 **[How it works](docs/how-it-works.md)** ·
@@ -113,14 +128,32 @@ Good fits:
 - **Building something on top.** The Python API gives you timestamps, scores, a
   similarity curve over the whole video, and the frames themselves.
 
-Not a good fit:
+Does not work today:
 
 - **Reading text in the video.** No OCR. Signs, licence plates and captions are
   close to invisible to it.
 - **Where something is in the frame.** "the cup on the left" does not work — it
   matches whole frames, not regions.
 - **Anything you can hear.** No audio, no speech.
+
+Not what it is for, and not planned:
+
 - **Summarising a whole video.** It finds *where*, not *what happened overall*.
+  Measured: on whole-video questions, which frames you pick stops mattering and
+  only how many you pick does.
+
+### Wanted
+
+The first three above are additions, not redesigns, and the pieces are separable
+enough that they are good first contributions:
+
+- **Audio.** A speech transcript indexed alongside the frames would cover a large
+  share of what people actually ask recordings.
+- **OCR.** A text-detection pass over the candidate frames, after retrieval
+  narrows them down — which is the whole point of the cascade.
+- **Region-level matching**, for "on the left" style queries.
+
+Open an issue if you want to take one on.
 
 ## How it works
 
@@ -169,8 +202,8 @@ work: **[the write-up](https://batchnorm.com)**.
 - **It samples one frame per second by default.** Something visible for less than
   a second can be missed. `--fps 2` doubles the sampling and the index cost.
 - **h.264 works best.** HEVC and AV1 decode meaningfully slower.
-- **Numbers here are from one GPU** (a GH200). The ratios should hold on other
-  hardware; the absolute timings will not.
+- **Timings here are from one machine** (a GH200, 64 cores). The ratios should
+  hold elsewhere; the absolute numbers will not.
 - **Describe, don't ask.** `"a dark tunnel"` works well; `"is the train in a
   tunnel?"` works measurably worse. The retrieval model was trained on captions.
 

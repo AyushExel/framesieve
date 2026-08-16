@@ -39,6 +39,36 @@ SIGLIP_MODELS: dict[str, dict] = {
 SIGLIP_MODELS["siglip-base-224"]["revision"] = "7fd15f0689c7"
 
 
+def pick_device(device: str | None = None) -> str:
+    """CUDA if there is one, MPS on Apple silicon, else CPU.
+
+    Defaulting to "cuda" and letting torch raise is the wrong failure: someone
+    without a GPU gets `RuntimeError: No CUDA GPUs are available` from three
+    frames down a stack, which says nothing about what to do. The cheap encoder
+    runs perfectly well on CPU -- about 35 frame/s on eight threads, which is
+    35x realtime at 1 fps -- so falling back is the right default, not an error.
+    """
+    if device is not None:
+        return device
+    if torch.cuda.is_available():
+        return "cuda"
+    if getattr(torch.backends, "mps", None) is not None \
+            and torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
+
+def pick_dtype(device: str, dtype: torch.dtype | None = None) -> torch.dtype:
+    """bfloat16 on an accelerator, float32 on CPU.
+
+    bfloat16 on CPU is emulated on most builds and measurably slower than
+    float32, so following the GPU default there would be a pessimisation.
+    """
+    if dtype is not None:
+        return dtype
+    return torch.float32 if device == "cpu" else torch.bfloat16
+
+
 @dataclass
 class EncoderSpec:
     key: str
@@ -55,9 +85,14 @@ class SiglipEncoder:
     MEAN = 0.5
     STD = 0.5
 
-    def __init__(self, key: str = "siglip2-base-224", device: str = "cuda",
-                 dtype: torch.dtype = torch.bfloat16, compile_model: bool = False):
+    def __init__(self, key: str = "siglip2-base-224",
+                 device: str | None = None,
+                 dtype: torch.dtype | None = None,
+                 compile_model: bool = False):
         from transformers import AutoModel, AutoTokenizer
+
+        device = pick_device(device)
+        dtype = pick_dtype(device, dtype)
 
         if key not in SIGLIP_MODELS:
             raise KeyError(f"unknown encoder {key!r}; have {list(SIGLIP_MODELS)}")
@@ -170,9 +205,14 @@ class ClipEncoder(SiglipEncoder):
     MEAN = torch.tensor([0.48145466, 0.4578275, 0.40821073]).view(1, 3, 1, 1)
     STD = torch.tensor([0.26862954, 0.26130258, 0.27577711]).view(1, 3, 1, 1)
 
-    def __init__(self, key: str = "clip-b32", device: str = "cuda",
-                 dtype: torch.dtype = torch.bfloat16, compile_model: bool = False):
+    def __init__(self, key: str = "clip-b32",
+                 device: str | None = None,
+                 dtype: torch.dtype | None = None,
+                 compile_model: bool = False):
         from transformers import AutoModel, AutoTokenizer
+
+        device = pick_device(device)
+        dtype = pick_dtype(device, dtype)
 
         if key not in CLIP_MODELS:
             raise KeyError(f"unknown encoder {key!r}; have {list(CLIP_MODELS)}")

@@ -199,3 +199,34 @@ def test_score_normalises_the_vector_it_is_given():
     v = _fake_index(dim=8)
     q = np.ones(8, dtype=np.float32)
     assert np.allclose(v.score(q), v.score(q * 17.0))
+
+
+def test_device_selection_falls_back_rather_than_raising(monkeypatch):
+    """No GPU is a normal machine, not an error.
+
+    Before this, framesieve.index() on a CPU-only host died with
+    `RuntimeError: No CUDA GPUs are available` from three frames down a torch
+    stack, which tells the reader nothing about what to do.
+    """
+    import torch
+
+    from framesieve.encoders import pick_device
+
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+    if getattr(torch.backends, "mps", None) is not None:
+        monkeypatch.setattr(torch.backends.mps, "is_available", lambda: False)
+    assert pick_device() == "cpu"
+    assert pick_device("cuda") == "cuda"          # an explicit choice still wins
+
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    assert pick_device() == "cuda"
+
+
+def test_cpu_gets_float32_because_bfloat16_is_emulated_there():
+    import torch
+
+    from framesieve.encoders import pick_dtype
+
+    assert pick_dtype("cpu") is torch.float32
+    assert pick_dtype("cuda") is torch.bfloat16
+    assert pick_dtype("cpu", torch.float16) is torch.float16   # override wins
