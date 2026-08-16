@@ -248,3 +248,34 @@ def test_store_and_plain_index_are_different_files():
     b = fs.index_path_for("/tmp/v.mp4", store=True)
     assert a != b
     assert a.endswith(".npz") and b.endswith(".lance")
+
+
+def test_the_plain_path_never_touches_lance():
+    """A plain .npz index must not pull in the columnar store or its deps.
+
+    `store=True` is optional and its dependency is optional with it, so the
+    default path importing lance would make an optional extra effectively
+    required. Checked in a subprocess because sys.modules is process-wide and
+    another test may legitimately have imported it.
+    """
+    import subprocess
+    src = os.path.join(os.path.dirname(__file__), "..", "src")
+    code = (
+        "import sys; sys.path.insert(0, %r);"
+        "import numpy as np, framesieve as fs;"
+        "from framesieve.index import FrameIndex, IndexStats;"
+        "st=IndexStats(video='v.mp4',duration_s=4,target_fps=1,n_frames=4,"
+        "n_encoded=4,n_segments=1,encoder='t',encoder_revision='0',embed_dim=4,"
+        "pixel_gate_tau=0,segment_tau=0,decode_encode_s=1,frames_per_s=4,"
+        "realtime_factor=1);"
+        "e=np.eye(4,dtype=np.float32);"
+        "v=fs.VideoIndex(FrameIndex(np.arange(4,dtype=np.float32),e,"
+        "np.zeros(4,np.int32),st));"
+        "v.score(np.ones(4,dtype=np.float32));"
+        "print(sorted(m for m in sys.modules "
+        "if m.split('.')[0] in {'lance','lancedb'}))"
+    ) % src
+    out = subprocess.run([sys.executable, "-c", code],
+                         capture_output=True, text=True)
+    assert out.returncode == 0, out.stderr[-800:]
+    assert out.stdout.strip() == "[]", out.stdout

@@ -93,5 +93,4 @@ ignore = [
 # (set an x, then its y) read better together than apart, and matplotlib loops
 # routinely bind a label they only use for its position.
 "src/framesieve/figures.py" = ["E702", "B007"]
-"src/framesieve/videoblob.py" = ["E702"]
 "tests/*" = ["B018"]

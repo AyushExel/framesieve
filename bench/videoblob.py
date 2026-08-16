@@ -1,4 +1,16 @@
-"""Store the video once, read only the byte ranges you need.
+"""The design that was measured and not adopted: store the video itself.
+
+Kept as a benchmark rather than as library code. It remuxes to TS, indexes the
+GOPs, and stores the whole video as one Lance blob, so a frame comes back as a
+byte-range read over the container instead of an ffmpeg seek. It works, and
+docs/frame-access.md has the numbers, but framesieve ships the per-frame JPEG
+store instead: this one pays a GOP decode per frame, which is the cost the
+frame store removes outright.
+
+It also uses lancedb, which framesieve does not depend on -- another reason it
+belongs here and not in the package.
+
+Store the video once, read only the byte ranges you need.
 
 The JPEG store in store.py is fast but duplicates pixels: it keeps a second copy
 of every sampled frame. LanceDB's batched blob range reads

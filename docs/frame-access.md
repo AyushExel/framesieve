@@ -76,7 +76,7 @@ than it sounds.
 Fallback with no `pylance` installed: parallel ffmpeg seeks. Correct, 13× slower,
 no extra disk.
 
-`src/framesieve/videoblob.py` implements the video byte-range store too, verified
+`bench/videoblob.py` implements the video byte-range store too, verified
 frame-exact against a plain seek (mean abs diff **0.000**, 8/8 identical). It is
 the right tool for remote storage and for clip-shaped reads; it is not the right
 tool for the refine stage on a local disk, and the numbers above are why.
