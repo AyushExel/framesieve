@@ -1,0 +1,182 @@
+{
+  "config": {
+    "models": [
+      "siglip2-base-224",
+      "siglip2-base-384",
+      "siglip2-so400m-384"
+    ],
+    "batches": [
+      32,
+      64,
+      128,
+      256
+    ],
+    "src_hw": [
+      720,
+      960
+    ],
+    "iters": 30,
+    "compile": false,
+    "out": "runs/encode_bench.json"
+  },
+  "gpu": "NVIDIA GH200 480GB",
+  "torch": "2.7.0+cu128",
+  "results": [
+    {
+      "model": "siglip2-base-224",
+      "input_size": 224,
+      "params_vision_m": 92.9,
+      "batch": 32,
+      "dtype": "torch.bfloat16",
+      "compiled": false,
+      "frames_per_s": 5384.071901546146,
+      "ms_per_batch": 5.94345703125,
+      "peak_mem_gb": 1.084350976,
+      "hours_per_24h_at_1fps": 0.0044575927734375,
+      "gpu_s_per_24h_at_1fps": 16.047333984374998
+    },
+    {
+      "model": "siglip2-base-224",
+      "input_size": 224,
+      "params_vision_m": 92.9,
+      "batch": 64,
+      "dtype": "torch.bfloat16",
+      "compiled": false,
+      "frames_per_s": 7495.358182697402,
+      "ms_per_batch": 8.53861796061198,
+      "peak_mem_gb": 1.370874368,
+      "hours_per_24h_at_1fps": 0.003201981735229492,
+      "gpu_s_per_24h_at_1fps": 11.52713424682617
+    },
+    {
+      "model": "siglip2-base-224",
+      "input_size": 224,
+      "params_vision_m": 92.9,
+      "batch": 128,
+      "dtype": "torch.bfloat16",
+      "compiled": false,
+      "frames_per_s": 7604.737513242507,
+      "ms_per_batch": 16.83161315917969,
+      "peak_mem_gb": 1.938416128,
+      "hours_per_24h_at_1fps": 0.003155927467346192,
+      "gpu_s_per_24h_at_1fps": 11.36133888244629
+    },
+    {
+      "model": "siglip2-base-224",
+      "input_size": 224,
+      "params_vision_m": 92.9,
+      "batch": 256,
+      "dtype": "torch.bfloat16",
+      "compiled": false,
+      "frames_per_s": 7607.402792878895,
+      "ms_per_batch": 33.651432291666666,
+      "peak_mem_gb": 3.077169664,
+      "hours_per_24h_at_1fps": 0.00315482177734375,
+      "gpu_s_per_24h_at_1fps": 11.3573583984375
+    },
+    {
+      "model": "siglip2-base-384",
+      "input_size": 384,
+      "params_vision_m": 93.2,
+      "batch": 32,
+      "dtype": "torch.bfloat16",
+      "compiled": false,
+      "frames_per_s": 2715.7646155691,
+      "ms_per_batch": 11.783053588867187,
+      "peak_mem_gb": 1.164104704,
+      "hours_per_24h_at_1fps": 0.00883729019165039,
+      "gpu_s_per_24h_at_1fps": 31.814244689941404
+    },
+    {
+      "model": "siglip2-base-384",
+      "input_size": 384,
+      "params_vision_m": 93.2,
+      "batch": 64,
+      "dtype": "torch.bfloat16",
+      "compiled": false,
+      "frames_per_s": 2773.1468470314185,
+      "ms_per_batch": 23.078474934895834,
+      "peak_mem_gb": 1.53215488,
+      "hours_per_24h_at_1fps": 0.008654428100585938,
+      "gpu_s_per_24h_at_1fps": 31.155941162109375
+    },
+    {
+      "model": "siglip2-base-384",
+      "input_size": 384,
+      "params_vision_m": 93.2,
+      "batch": 128,
+      "dtype": "torch.bfloat16",
+      "compiled": false,
+      "frames_per_s": 2787.0127090263077,
+      "ms_per_batch": 45.927311197916666,
+      "peak_mem_gb": 2.268255232,
+      "hours_per_24h_at_1fps": 0.008611370849609374,
+      "gpu_s_per_24h_at_1fps": 31.00093505859375
+    },
+    {
+      "model": "siglip2-base-384",
+      "input_size": 384,
+      "params_vision_m": 93.2,
+      "batch": 256,
+      "dtype": "torch.bfloat16",
+      "compiled": false,
+      "frames_per_s": 2802.0608418667293,
+      "ms_per_batch": 91.361328125,
+      "peak_mem_gb": 3.740455936,
+      "hours_per_24h_at_1fps": 0.008565124511718751,
+      "gpu_s_per_24h_at_1fps": 30.834448242187502
+    },
+    {
+      "model": "siglip2-so400m-384",
+      "input_size": 384,
+      "params_vision_m": 428.2,
+      "batch": 32,
+      "dtype": "torch.bfloat16",
+      "compiled": false,
+      "frames_per_s": 573.4383573380388,
+      "ms_per_batch": 55.803731282552086,
+      "peak_mem_gb": 2.975355904,
+      "hours_per_24h_at_1fps": 0.04185279846191406,
+      "gpu_s_per_24h_at_1fps": 150.67007446289062
+    },
+    {
+      "model": "siglip2-so400m-384",
+      "input_size": 384,
+      "params_vision_m": 428.2,
+      "batch": 64,
+      "dtype": "torch.bfloat16",
+      "compiled": false,
+      "frames_per_s": 566.0801502038029,
+      "ms_per_batch": 113.05819498697916,
+      "peak_mem_gb": 3.619755008,
+      "hours_per_24h_at_1fps": 0.04239682312011719,
+      "gpu_s_per_24h_at_1fps": 152.62856323242187
+    },
+    {
+      "model": "siglip2-so400m-384",
+      "input_size": 384,
+      "params_vision_m": 428.2,
+      "batch": 128,
+      "dtype": "torch.bfloat16",
+      "compiled": false,
+      "frames_per_s": 572.6231173341779,
+      "ms_per_batch": 223.53271484375,
+      "peak_mem_gb": 4.907512832,
+      "hours_per_24h_at_1fps": 0.04191238403320313,
+      "gpu_s_per_24h_at_1fps": 150.88458251953128
+    },
+    {
+      "model": "siglip2-so400m-384",
+      "input_size": 384,
+      "params_vision_m": 428.2,
+      "batch": 256,
+      "dtype": "torch.bfloat16",
+      "compiled": false,
+      "frames_per_s": 581.902603501233,
+      "ms_per_batch": 439.93616536458336,
+      "peak_mem_gb": 7.487181824,
+      "hours_per_24h_at_1fps": 0.041244015502929686,
+      "gpu_s_per_24h_at_1fps": 148.47845581054688
+    }
+  ]
+}

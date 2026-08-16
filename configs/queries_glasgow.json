@@ -1,0 +1,64 @@
+{
+  "_note": [
+    "Two surface forms per query, because the two models want different things.",
+    "The cheap encoder (SigLIP) is trained on image captions, so it gets a caption.",
+    "The VLM is instruction-tuned, so it gets a yes/no question. Handing SigLIP the",
+    "question form measurably handicaps every retrieval-based strategy and would",
+    "flatter uniform sampling for a reason that has nothing to do with selection.",
+    "",
+    "The captions were written once, before any recall number was computed, and",
+    "have not been revised in response to results. The question forms are exactly",
+    "the strings the ground-truth pass used -- see DEFAULT_QUERIES in",
+    "scripts/build_groundtruth.py -- and the order here matches that pass."
+  ],
+  "queries": [
+    {
+      "id": "tunnel",
+      "question": "Is the train inside a tunnel?",
+      "caption": "a view from inside a dark railway tunnel",
+      "expect": "rare, brief"
+    },
+    {
+      "id": "other_train",
+      "question": "Is there another train visible?",
+      "caption": "another train on the railway line",
+      "expect": "rare, brief"
+    },
+    {
+      "id": "level_crossing",
+      "question": "Is there a level crossing where a road crosses the railway?",
+      "caption": "a level crossing where a road crosses the railway tracks",
+      "expect": "rare, brief"
+    },
+    {
+      "id": "platform",
+      "question": "Is there a railway station platform?",
+      "caption": "a railway station platform",
+      "expect": "moderate"
+    },
+    {
+      "id": "water",
+      "question": "Is there a lake, loch or large body of water?",
+      "caption": "a lake or loch beside the railway",
+      "expect": "moderate"
+    },
+    {
+      "id": "bridge",
+      "question": "Is there a bridge or viaduct crossing over the railway?",
+      "caption": "a bridge or viaduct crossing over the railway track",
+      "expect": "moderate"
+    },
+    {
+      "id": "livestock",
+      "question": "Are there sheep or cattle visible?",
+      "caption": "sheep or cattle in a field",
+      "expect": "rare"
+    },
+    {
+      "id": "people",
+      "question": "Are there people visible?",
+      "caption": "people standing beside the railway",
+      "expect": "moderate"
+    }
+  ]
+}

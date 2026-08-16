@@ -1,0 +1,64 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+
+      # CPU torch: CI never touches a GPU, and the tests that would need one
+      # skip themselves. Installing the CUDA wheel here would cost minutes and
+      # buy nothing.
+      - name: install
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -e ".[dev]"
+
+      - name: lint
+        run: ruff check .
+
+      - name: test
+        run: pytest -q
+
+      # The one guarantee that is easy to break by adding an import and hard to
+      # notice: `import framesieve` must not drag in torch.
+      - name: import stays light
+        run: |
+          python - <<'PY'
+          import subprocess, sys
+          out = subprocess.run(
+              [sys.executable, "-c",
+               "import sys, framesieve; print('torch' in sys.modules)"],
+              capture_output=True, text=True).stdout.strip()
+          assert out == "False", f"importing framesieve pulled in torch: {out}"
+          print("ok: import framesieve does not import torch")
+          PY
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install build twine
+      - run: python -m build
+      - run: twine check dist/*

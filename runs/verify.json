@@ -1,0 +1,91 @@
+{
+  "env": {
+    "platform": "Linux-6.8.0-1046-nvidia-64k-aarch64-with-glibc2.35",
+    "machine": "aarch64",
+    "python": "3.10.12",
+    "torch": "2.7.0+cu128",
+    "cuda": "12.8",
+    "cudnn": 90800,
+    "gpu": "NVIDIA GH200 480GB, 97871 MiB, 580.105.08",
+    "cpu_count": 64,
+    "ffmpeg": "ffmpeg version 4.4.2-0ubuntu0.22.04.1 Copyright (c) 2000-2021 the FFmpeg developers",
+    "git_commit": "4f4e58a7838e09aac7b68b3009ce8ff806ade30c",
+    "git_dirty": true,
+    "model_revisions": {
+      "siglip-base-224": "7fd15f0689c7",
+      "siglip2-base-224": "75de2d55ec2d",
+      "siglip2-base-384": "f775b65a7976",
+      "siglip-so400m-384": "9fdffc58afc9",
+      "siglip2-so400m-384": "e8e487298228",
+      "qwen2.5-vl-7b": "cc594898137f",
+      "qwen2.5-vl-3b": "66285546d2b8"
+    }
+  },
+  "checks": [
+    {
+      "name": "cuda available",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "libnvcuvid present",
+      "passed": true,
+      "detail": "install libnvidia-decode-<driver> if this fails; NVDEC silently falls back otherwise"
+    },
+    {
+      "name": "nvdec decodes",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "stream and seek return the same frame",
+      "passed": true,
+      "detail": "100% identical, mean abs diff 0.000 grey levels (max 0.00)"
+    },
+    {
+      "name": "index build is deterministic",
+      "passed": true,
+      "detail": "emb equal=True, seg equal=True"
+    },
+    {
+      "name": "selection deterministic: topk",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "selection deterministic: nms",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "selection deterministic: segment",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "uniform is seed-reproducible and seed-sensitive",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "vlm scores reproduce from disk",
+      "passed": true,
+      "detail": "max |delta| 0.0000, mean 0.0000 on query 'Is the train inside a tunnel?'"
+    },
+    {
+      "name": "embeddings unit-norm",
+      "passed": true,
+      "detail": "max deviation 0.0002"
+    },
+    {
+      "name": "timestamps strictly increasing",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "segments partition the frames",
+      "passed": true,
+      "detail": "205 segments over 16,244 frames"
+    }
+  ]
+}

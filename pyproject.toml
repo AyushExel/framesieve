@@ -1,0 +1,97 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "framesieve"
+version = "0.1.0"
+description = "Search long video without running a VLM on every frame."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "framesieve contributors" }]
+keywords = ["video", "search", "retrieval", "vlm", "siglip", "cascade",
+            "video-understanding", "moment-retrieval"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Multimedia :: Video",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Typing :: Typed",
+]
+
+# Deliberately small. torch is NOT pinned here: the right build depends on your
+# CUDA version and installing the wrong one silently gives you a CPU-only wheel,
+# which is the single most common way to make this library 30x slower. Install
+# torch first, from the index for your platform, then framesieve.
+dependencies = [
+  "numpy>=1.24",
+  "torch>=2.2",
+  "transformers>=4.45",
+]
+
+[project.optional-dependencies]
+# the expensive stage: reading frames back and scoring them with a VLM
+vlm = ["accelerate>=0.30", "pillow>=10.0"]
+# frames kept as JPEG blobs beside their embeddings; ~14x faster frame fetch
+store = ["pylance>=0.19"]
+dev = ["pytest>=7.4", "ruff>=0.6", "matplotlib>=3.8"]
+all = ["framesieve[vlm,store]"]
+
+[project.urls]
+Homepage = "https://github.com/AyushExel/framesieve"
+Documentation = "https://github.com/AyushExel/framesieve#readme"
+Source = "https://github.com/AyushExel/framesieve"
+Issues = "https://github.com/AyushExel/framesieve/issues"
+Changelog = "https://github.com/AyushExel/framesieve/blob/main/CHANGELOG.md"
+
+[project.scripts]
+framesieve = "framesieve.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/framesieve"]
+# figures.py draws the write-ups and is the one module that needs matplotlib,
+# which is not a dependency. It stays in the repo and the sdist for anyone
+# reproducing the posts, and out of the wheel so `pip install framesieve` does
+# not ship a module that cannot import.
+exclude = ["src/framesieve/figures.py"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/framesieve", "tests", "README.md", "LICENSE", "docs/*.md"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+src = ["src", "scripts", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = [
+  "E501",  # long lines are checked by review, not by a linter
+  "B905",  # zip(strict=) is 3.10+ only where we still support the old form
+]
+
+[tool.ruff.lint.per-file-ignores]
+# research scripts print and shadow freely; they are not library code
+# Research and benchmark code. It is checked for real bugs and left alone on
+# style: one-line paired statements, single-letter loop names in maths, and
+# imports placed after a sys.path insert are all normal there and rewriting them
+# would only obscure what the experiments do.
+"scripts/*" = ["E402", "F401", "B007", "E702", "E741", "E401", "B023", "F841"]
+"bench/*" = ["E402", "F401", "E702", "E741", "E401", "F841"]
+# plotting code for the write-ups. The paired statements it puts on one line
+# (set an x, then its y) read better together than apart, and matplotlib loops
+# routinely bind a label they only use for its position.
+"src/framesieve/figures.py" = ["E702", "B007"]
+"src/framesieve/videoblob.py" = ["E702"]
+"tests/*" = ["B018"]

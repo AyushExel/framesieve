@@ -1,0 +1,124 @@
+{
+  "config": {
+    "video": "data/demo_clip.mp4",
+    "store": "runs/blobstore_demo.lance",
+    "fps": 1.0,
+    "quality": 90,
+    "n_fetch": [
+      8,
+      32,
+      128
+    ],
+    "repeats": 5,
+    "workers": [
+      1,
+      8,
+      32
+    ],
+    "rebuild": true,
+    "out": "runs/blobstore_bench.json"
+  },
+  "store": {
+    "n_frames": 400,
+    "store_bytes": 29339021,
+    "video_bytes": 101288833,
+    "decode_s": 2.1562489079951774,
+    "jpeg_encode_s": 0.9486134089966072,
+    "lance_write_s": 0.027654755998810288,
+    "video_duration_s": 400.023,
+    "quality": 90,
+    "resolution": "960x720"
+  },
+  "rows": [
+    {
+      "n": 8,
+      "source": "lance blob",
+      "read_s_median": 0.0013059320008323994,
+      "jpeg_decode_s_median": 0.02080326799841714,
+      "total_s_median": 0.022330962001433363,
+      "ms_per_frame": 2.7913702501791704,
+      "ms_per_frame_read_only": 0.16324150010404992
+    },
+    {
+      "n": 8,
+      "source": "ffmpeg seek x1",
+      "workers": 1,
+      "total_s_median": 0.8723260039987508,
+      "ms_per_frame": 109.04075049984385
+    },
+    {
+      "n": 8,
+      "source": "ffmpeg seek x8",
+      "workers": 8,
+      "total_s_median": 0.16140756700042402,
+      "ms_per_frame": 20.175945875053003
+    },
+    {
+      "n": 8,
+      "source": "ffmpeg seek x32",
+      "workers": 32,
+      "total_s_median": 0.15583071500077494,
+      "ms_per_frame": 19.478839375096868
+    },
+    {
+      "n": 32,
+      "source": "lance blob",
+      "read_s_median": 0.002936955999757629,
+      "jpeg_decode_s_median": 0.07703349400253501,
+      "total_s_median": 0.08020626000507036,
+      "ms_per_frame": 2.506445625158449,
+      "ms_per_frame_read_only": 0.0917798749924259
+    },
+    {
+      "n": 32,
+      "source": "ffmpeg seek x1",
+      "workers": 1,
+      "total_s_median": 3.440541412001039,
+      "ms_per_frame": 107.51691912503247
+    },
+    {
+      "n": 32,
+      "source": "ffmpeg seek x8",
+      "workers": 8,
+      "total_s_median": 0.69438503299898,
+      "ms_per_frame": 21.699532281218126
+    },
+    {
+      "n": 32,
+      "source": "ffmpeg seek x32",
+      "workers": 32,
+      "total_s_median": 0.39120358700165525,
+      "ms_per_frame": 12.225112093801727
+    },
+    {
+      "n": 128,
+      "source": "lance blob",
+      "read_s_median": 0.008112139999866486,
+      "jpeg_decode_s_median": 0.30059159800293855,
+      "total_s_median": 0.3089090840003337,
+      "ms_per_frame": 2.413352218752607,
+      "ms_per_frame_read_only": 0.06337609374895692
+    },
+    {
+      "n": 128,
+      "source": "ffmpeg seek x1",
+      "workers": 1,
+      "total_s_median": 13.242470834000414,
+      "ms_per_frame": 103.45680339062824
+    },
+    {
+      "n": 128,
+      "source": "ffmpeg seek x8",
+      "workers": 8,
+      "total_s_median": 3.289242995000677,
+      "ms_per_frame": 25.69721089844279
+    },
+    {
+      "n": 128,
+      "source": "ffmpeg seek x32",
+      "workers": 32,
+      "total_s_median": 1.7711835209993296,
+      "ms_per_frame": 13.837371257807263
+    }
+  ]
+}

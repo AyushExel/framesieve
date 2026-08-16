@@ -1,0 +1,19 @@
+# The exact environment the measurements in runs/ were produced in, pinned so
+# they can be reproduced rather than approximated.
+#
+# To USE the library, install it instead:  pip install framesieve
+# (see pyproject.toml). This file is for re-running the experiments.
+#
+# torch first, from the CUDA index for your platform:
+#   pip install --index-url https://download.pytorch.org/whl/cu128 torch==2.7.0 torchvision==0.22.0
+torch==2.7.0
+torchvision==0.22.0
+transformers==5.15.0
+accelerate==1.14.0
+qwen-vl-utils
+sentencepiece
+protobuf
+numpy
+pillow
+pandas
+matplotlib

@@ -1,0 +1,40 @@
+{
+  "config": {
+    "batch_chunks": 16,
+    "iters": 15,
+    "which": [
+      "languagebind",
+      "internvideo2"
+    ],
+    "out": "runs/baseline_throughput_lb.json"
+  },
+  "chunk_s": 10.0,
+  "gpu": "NVIDIA GH200 480GB",
+  "rows": [
+    {
+      "name": "LanguageBind",
+      "attn": "sdpa",
+      "params_m": 528.623873,
+      "vision_params_m": 404.187136,
+      "frames_per_chunk": 8,
+      "batch_chunks": 16,
+      "s_per_batch": 0.1090469867999976,
+      "chunks_per_s": 146.72574153145104,
+      "video_s_per_s": 1467.2574153145104,
+      "gpu_s_per_hour": 2.4535572029999457
+    },
+    {
+      "name": "InternVideo2 (reconstructed)",
+      "params_m": 952.978048,
+      "vision_params_m": 952.978048,
+      "frames_per_chunk": 8,
+      "batch_chunks": 16,
+      "s_per_batch": 0.22985785353327326,
+      "chunks_per_s": 69.60823723903742,
+      "video_s_per_s": 696.0823723903742,
+      "gpu_s_per_hour": 5.171801704498648,
+      "note": "architecture reconstructed from the paper, not the released checkpoint",
+      "tokens_per_chunk": 2049
+    }
+  ]
+}

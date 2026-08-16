@@ -1,0 +1,35 @@
+{
+  "n_videos_indexed": 197,
+  "n_skipped_existing": 103,
+  "n_failed": 0,
+  "total_video_hours": 134.491001173611,
+  "total_frames": 484000,
+  "total_segments": 111263,
+  "collapse_ratio": 4.350053476897082,
+  "wall_s": 2074.0680304939997,
+  "realtime_factor": 233.438632246639,
+  "encoder": {
+    "key": "siglip2-base-224",
+    "repo": "google/siglip2-base-patch16-224",
+    "revision": "75de2d55ec2d",
+    "input_size": 224,
+    "embed_dim": 768,
+    "params_total_m": 375.2,
+    "params_vision_m": 92.9,
+    "dtype": "torch.bfloat16",
+    "compiled": false
+  },
+  "config": {
+    "video_dir": "data/vmme_long",
+    "out_dir": "runs/vmme_index",
+    "encoder": "siglip2-base-224",
+    "fps": 1.0,
+    "size": 256,
+    "batch": 256,
+    "segment_tau": 0.9,
+    "pixel_gate_tau": 0.0,
+    "seed": 0,
+    "limit": 0
+  },
+  "gpu": "NVIDIA GH200 480GB"
+}

@@ -1,0 +1,185 @@
+{
+  "config": {
+    "model": "qwen2.5-vl-7b",
+    "frame_dir": "/tmp/fs_frames",
+    "token_budgets": [
+      64,
+      128,
+      256,
+      512
+    ],
+    "batches": [
+      1,
+      4,
+      16,
+      32
+    ],
+    "iters": 5,
+    "warmup": 2,
+    "question": "Is there a stone bridge over the railway track?",
+    "out": "runs/vlm_bench.json"
+  },
+  "gpu": "NVIDIA GH200 480GB",
+  "results": [
+    {
+      "model": "qwen2.5-vl-7b",
+      "max_visual_tokens": 64,
+      "batch": 1,
+      "attn": "sdpa",
+      "frames_per_s": 12.65596095730975,
+      "s_per_frame": 0.07901415019950946,
+      "peak_mem_gb": 16.776687104,
+      "gpu_hours_per_24h_at_1fps": 1.8963396047882268
+    },
+    {
+      "model": "qwen2.5-vl-7b",
+      "max_visual_tokens": 64,
+      "batch": 4,
+      "attn": "sdpa",
+      "frames_per_s": 26.43646291769422,
+      "s_per_frame": 0.037826542949915165,
+      "peak_mem_gb": 17.119872,
+      "gpu_hours_per_24h_at_1fps": 0.907837030797964
+    },
+    {
+      "model": "qwen2.5-vl-7b",
+      "max_visual_tokens": 64,
+      "batch": 16,
+      "attn": "sdpa",
+      "frames_per_s": 30.170588652918465,
+      "s_per_frame": 0.033144862087510774,
+      "peak_mem_gb": 18.376865792,
+      "gpu_hours_per_24h_at_1fps": 0.7954766901002586
+    },
+    {
+      "model": "qwen2.5-vl-7b",
+      "max_visual_tokens": 64,
+      "batch": 32,
+      "attn": "sdpa",
+      "frames_per_s": 30.924921961757477,
+      "s_per_frame": 0.0323363790937492,
+      "peak_mem_gb": 20.078495744,
+      "gpu_hours_per_24h_at_1fps": 0.7760730982499808
+    },
+    {
+      "model": "qwen2.5-vl-7b",
+      "max_visual_tokens": 128,
+      "batch": 1,
+      "attn": "sdpa",
+      "frames_per_s": 10.96854741605122,
+      "s_per_frame": 0.09116977500016218,
+      "peak_mem_gb": 16.877292544,
+      "gpu_hours_per_24h_at_1fps": 2.1880746000038926
+    },
+    {
+      "model": "qwen2.5-vl-7b",
+      "max_visual_tokens": 128,
+      "batch": 4,
+      "attn": "sdpa",
+      "frames_per_s": 15.806159194101276,
+      "s_per_frame": 0.06326647655005217,
+      "peak_mem_gb": 17.510260736,
+      "gpu_hours_per_24h_at_1fps": 1.5183954372012523
+    },
+    {
+      "model": "qwen2.5-vl-7b",
+      "max_visual_tokens": 128,
+      "batch": 16,
+      "attn": "sdpa",
+      "frames_per_s": 16.208966268697527,
+      "s_per_frame": 0.0616942489374651,
+      "peak_mem_gb": 19.986046464,
+      "gpu_hours_per_24h_at_1fps": 1.4806619744991625
+    },
+    {
+      "model": "qwen2.5-vl-7b",
+      "max_visual_tokens": 128,
+      "batch": 32,
+      "attn": "sdpa",
+      "frames_per_s": 15.871362242394659,
+      "s_per_frame": 0.06300656394375892,
+      "peak_mem_gb": 23.302329344,
+      "gpu_hours_per_24h_at_1fps": 1.512157534650214
+    },
+    {
+      "model": "qwen2.5-vl-7b",
+      "max_visual_tokens": 256,
+      "batch": 1,
+      "attn": "sdpa",
+      "frames_per_s": 7.880427934332001,
+      "s_per_frame": 0.12689666200021749,
+      "peak_mem_gb": 17.028292096,
+      "gpu_hours_per_24h_at_1fps": 3.0455198880052192
+    },
+    {
+      "model": "qwen2.5-vl-7b",
+      "max_visual_tokens": 256,
+      "batch": 4,
+      "attn": "sdpa",
+      "frames_per_s": 9.141379933473237,
+      "s_per_frame": 0.10939267454996297,
+      "peak_mem_gb": 18.103863296,
+      "gpu_hours_per_24h_at_1fps": 2.6254241891991112
+    },
+    {
+      "model": "qwen2.5-vl-7b",
+      "max_visual_tokens": 256,
+      "batch": 16,
+      "attn": "sdpa",
+      "frames_per_s": 9.325953889742351,
+      "s_per_frame": 0.1072276371749922,
+      "peak_mem_gb": 22.404068352,
+      "gpu_hours_per_24h_at_1fps": 2.5734632921998126
+    },
+    {
+      "model": "qwen2.5-vl-7b",
+      "max_visual_tokens": 256,
+      "batch": 32,
+      "attn": "sdpa",
+      "frames_per_s": 9.0376022166295,
+      "s_per_frame": 0.11064881768750183,
+      "peak_mem_gb": 28.138374656,
+      "gpu_hours_per_24h_at_1fps": 2.655571624500044
+    },
+    {
+      "model": "qwen2.5-vl-7b",
+      "max_visual_tokens": 512,
+      "batch": 1,
+      "attn": "sdpa",
+      "frames_per_s": 7.879968909431474,
+      "s_per_frame": 0.12690405399989685,
+      "peak_mem_gb": 17.028292096,
+      "gpu_hours_per_24h_at_1fps": 3.045697295997524
+    },
+    {
+      "model": "qwen2.5-vl-7b",
+      "max_visual_tokens": 512,
+      "batch": 4,
+      "attn": "sdpa",
+      "frames_per_s": 9.325480915329214,
+      "s_per_frame": 0.10723307560001558,
+      "peak_mem_gb": 18.103863296,
+      "gpu_hours_per_24h_at_1fps": 2.5735938144003736
+    },
+    {
+      "model": "qwen2.5-vl-7b",
+      "max_visual_tokens": 512,
+      "batch": 16,
+      "attn": "sdpa",
+      "frames_per_s": 9.450069685051197,
+      "s_per_frame": 0.10581932549998782,
+      "peak_mem_gb": 22.404068352,
+      "gpu_hours_per_24h_at_1fps": 2.539663811999708
+    },
+    {
+      "model": "qwen2.5-vl-7b",
+      "max_visual_tokens": 512,
+      "batch": 32,
+      "attn": "sdpa",
+      "frames_per_s": 9.113812929256715,
+      "s_per_frame": 0.10972356002500874,
+      "peak_mem_gb": 28.138374656,
+      "gpu_hours_per_24h_at_1fps": 2.6333654406002096
+    }
+  ]
+}

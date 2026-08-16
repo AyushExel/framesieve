@@ -1,0 +1,25 @@
+{
+  "config": {
+    "batch_chunks": 16,
+    "iters": 12,
+    "which": [
+      "framesieve"
+    ],
+    "out": "runs/baseline_throughput_fs.json"
+  },
+  "chunk_s": 10.0,
+  "gpu": "NVIDIA GH200 480GB",
+  "rows": [
+    {
+      "name": "framesieve (SigLIP2-base)",
+      "params_m": 375.2,
+      "vision_params_m": 92.9,
+      "frames_per_chunk": 10,
+      "batch_chunks": 16,
+      "s_per_batch": 0.01639991225056292,
+      "chunks_per_s": 975.6149761990835,
+      "video_s_per_s": 9756.149761990835,
+      "gpu_s_per_hour": 0.36899802563766565
+    }
+  ]
+}

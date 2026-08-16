@@ -1,0 +1,11 @@
+{
+  "n_frames": 400,
+  "store_bytes": 29339021,
+  "video_bytes": 101288833,
+  "decode_s": 2.1562489079951774,
+  "jpeg_encode_s": 0.9486134089966072,
+  "lance_write_s": 0.027654755998810288,
+  "video_duration_s": 400.023,
+  "quality": 90,
+  "resolution": "960x720"
+}

@@ -1,0 +1,382 @@
+{
+  "uniform_theory": {
+    "n_frames": 16244,
+    "rows": [
+      {
+        "budget": 4,
+        "predicted": 0.0013713494635978932,
+        "measured": 0.0007383579410480117
+      },
+      {
+        "budget": 8,
+        "predicted": 0.0027426989271957863,
+        "measured": 0.001557861213007519
+      },
+      {
+        "budget": 16,
+        "predicted": 0.005485397854391573,
+        "measured": 0.005130837534547792
+      },
+      {
+        "budget": 32,
+        "predicted": 0.010970795708783145,
+        "measured": 0.009038154090083291
+      },
+      {
+        "budget": 64,
+        "predicted": 0.02194159141756629,
+        "measured": 0.01807097717829168
+      },
+      {
+        "budget": 128,
+        "predicted": 0.04388318283513258,
+        "measured": 0.04118939522912034
+      },
+      {
+        "budget": 256,
+        "predicted": 0.08631433709745351,
+        "measured": 0.0787660921616444
+      },
+      {
+        "budget": 512,
+        "predicted": 0.15920797259371863,
+        "measured": 0.1459958976154946
+      },
+      {
+        "budget": 1024,
+        "predicted": 0.2664284439303347,
+        "measured": 0.24064645060231313
+      }
+    ],
+    "calls_needed": {
+      "0.5": 2839,
+      "0.9": 12866
+    }
+  },
+  "cascade_speedup": {
+    "cost_ratio": 809.2830188679245,
+    "n_frames": 16244,
+    "rows": [
+      {
+        "budget": 8,
+        "F": 2030.5,
+        "S_1": 578.653072750044,
+        "S_100": 1980.8014730657965
+      },
+      {
+        "budget": 32,
+        "F": 507.625,
+        "S_1": 311.95215350422393,
+        "S_100": 504.46075602960576
+      },
+      {
+        "budget": 128,
+        "F": 126.90625,
+        "S_1": 109.70332231793256,
+        "S_100": 126.70755584253287
+      },
+      {
+        "budget": 512,
+        "F": 31.7265625,
+        "S_1": 30.529697695642852,
+        "S_100": 31.714129515632944
+      },
+      {
+        "budget": 1024,
+        "F": 15.86328125,
+        "S_1": 15.55831267414789,
+        "S_100": 15.860172394760166
+      }
+    ]
+  },
+  "depth_to_first_hit": [
+    {
+      "query": "Is the train inside a tunnel?",
+      "rank_first_hit": 1,
+      "n_frames": 16244,
+      "percentile": 0.006156119182467373,
+      "n_positive": 192
+    },
+    {
+      "query": "Is there another train visible?",
+      "rank_first_hit": 2,
+      "n_frames": 16244,
+      "percentile": 0.012312238364934745,
+      "n_positive": 280
+    },
+    {
+      "query": "Is there a level crossing where a road crosses the railway?",
+      "rank_first_hit": 1,
+      "n_frames": 16244,
+      "percentile": 0.006156119182467373,
+      "n_positive": 174
+    },
+    {
+      "query": "Is there a railway station platform?",
+      "rank_first_hit": 1,
+      "n_frames": 16244,
+      "percentile": 0.006156119182467373,
+      "n_positive": 1033
+    },
+    {
+      "query": "Is there a lake, loch or large body of water?",
+      "rank_first_hit": 1,
+      "n_frames": 16244,
+      "percentile": 0.006156119182467373,
+      "n_positive": 1295
+    },
+    {
+      "query": "Is there a bridge or viaduct crossing over the railway?",
+      "rank_first_hit": 1,
+      "n_frames": 16244,
+      "percentile": 0.006156119182467373,
+      "n_positive": 711
+    },
+    {
+      "query": "Are there sheep or cattle visible?",
+      "rank_first_hit": 1,
+      "n_frames": 16244,
+      "percentile": 0.006156119182467373,
+      "n_positive": 20
+    },
+    {
+      "query": "Are there people visible?",
+      "rank_first_hit": 1,
+      "n_frames": 16244,
+      "percentile": 0.006156119182467373,
+      "n_positive": 265
+    }
+  ],
+  "coverage_vs_relevance": {
+    "n_aggregate": 137,
+    "n_localised": 763,
+    "rows": [
+      {
+        "strategy": "uniform",
+        "localised": 49.060725207514196,
+        "aggregate": 44.038929440389296,
+        "vs_uniform_localised": 0.0,
+        "vs_uniform_aggregate": 0.0
+      },
+      {
+        "strategy": "topk",
+        "localised": 48.36173001310616,
+        "aggregate": 43.79562043795621,
+        "vs_uniform_localised": -0.6989951944080364,
+        "vs_uniform_aggregate": -0.24330900243308973
+      },
+      {
+        "strategy": "nms",
+        "localised": 49.93446920052425,
+        "aggregate": 47.44525547445255,
+        "vs_uniform_localised": 0.873743993010051,
+        "vs_uniform_aggregate": 3.406326034063256
+      },
+      {
+        "strategy": "segment",
+        "localised": 48.88597640891219,
+        "aggregate": 48.175182481751825,
+        "vs_uniform_localised": -0.17474879860200354,
+        "vs_uniform_aggregate": 4.136253041362531
+      },
+      {
+        "strategy": "segment_adaptive",
+        "localised": 49.54128440366973,
+        "aggregate": 47.44525547445255,
+        "vs_uniform_localised": 0.48055919615553333,
+        "vs_uniform_aggregate": 3.406326034063256
+      }
+    ]
+  },
+  "why_missed": {
+    "n_events": 769,
+    "n_frames": 16244,
+    "topk_ceiling": {
+      "8": 0.0589993324512407,
+      "32": 0.14843859016164185,
+      "128": 0.31875458102925996,
+      "512": 0.5190495006661106,
+      "1024": 0.6162172283518262
+    },
+    "measured": {
+      "uniform": {
+        "4": 0.0007383579410480117,
+        "8": 0.001557861213007519,
+        "16": 0.005130837534547792,
+        "32": 0.009038154090083291,
+        "64": 0.01807097717829168,
+        "128": 0.04118939522912034,
+        "256": 0.0787660921616444,
+        "512": 0.1459958976154946,
+        "1024": 0.24064645060231313
+      },
+      "topk": {
+        "4": 0.033657610420175094,
+        "8": 0.0568441600374476,
+        "16": 0.08678420548507268,
+        "32": 0.14698510178954882,
+        "64": 0.23006355224189368,
+        "128": 0.31730109265716694,
+        "256": 0.4061020412718741,
+        "512": 0.5168430002458247,
+        "1024": 0.6111550791938472
+      },
+      "nms": {
+        "4": 0.04752616882604828,
+        "8": 0.09069066481801767,
+        "16": 0.1440554310725784,
+        "32": 0.21297155428526068,
+        "64": 0.24460664164323961,
+        "128": 0.31360113291912256,
+        "256": 0.3808567858771693,
+        "512": 0.47260448114842746,
+        "1024": 0.5621104533560587
+      },
+      "segment": {
+        "4": 0.059296725855225996,
+        "8": 0.09067828033686279,
+        "16": 0.16443891248769874,
+        "32": 0.22716419309626423,
+        "64": 0.2884005780403343,
+        "128": 0.3297925941451587,
+        "256": 0.39795335747548055,
+        "512": 0.44798175027934817,
+        "1024": 0.5383513997998612
+      },
+      "segment_adaptive": {
+        "4": 0.04968134123984139,
+        "8": 0.0880671115710405,
+        "16": 0.16220614210031192,
+        "32": 0.23160825138068397,
+        "64": 0.34032730203031125,
+        "128": 0.43582186935699574,
+        "256": 0.5029171093892548,
+        "512": 0.5668224804787992,
+        "1024": 0.6237990983776796
+      }
+    },
+    "frac_events_beyond_1024": 0.38378277164817376,
+    "median_best_rank": 621.0,
+    "p90_best_rank": 12300.400000000001,
+    "per_query": [
+      {
+        "query": "Is the train inside a tunnel?",
+        "n_events": 60,
+        "median_best_rank": 59.5,
+        "frac_within_128": 0.8166666666666667,
+        "frac_within_1024": 0.95
+      },
+      {
+        "query": "Is there another train visible?",
+        "n_events": 86,
+        "median_best_rank": 3459.0,
+        "frac_within_128": 0.11627906976744186,
+        "frac_within_1024": 0.313953488372093
+      },
+      {
+        "query": "Is there a level crossing where a road crosses the railway?",
+        "n_events": 58,
+        "median_best_rank": 1107.0,
+        "frac_within_128": 0.13793103448275862,
+        "frac_within_1024": 0.4827586206896552
+      },
+      {
+        "query": "Is there a railway station platform?",
+        "n_events": 65,
+        "median_best_rank": 354.0,
+        "frac_within_128": 0.24615384615384617,
+        "frac_within_1024": 0.8461538461538461
+      },
+      {
+        "query": "Is there a lake, loch or large body of water?",
+        "n_events": 270,
+        "median_best_rank": 2026.0,
+        "frac_within_128": 0.0962962962962963,
+        "frac_within_1024": 0.4074074074074074
+      },
+      {
+        "query": "Is there a bridge or viaduct crossing over the railway?",
+        "n_events": 166,
+        "median_best_rank": 245.5,
+        "frac_within_128": 0.3614457831325301,
+        "frac_within_1024": 0.7650602409638554
+      },
+      {
+        "query": "Are there sheep or cattle visible?",
+        "n_events": 13,
+        "median_best_rank": 295.0,
+        "frac_within_128": 0.46153846153846156,
+        "frac_within_1024": 0.6153846153846154
+      },
+      {
+        "query": "Are there people visible?",
+        "n_events": 51,
+        "median_best_rank": 655.0,
+        "frac_within_128": 0.3137254901960784,
+        "frac_within_1024": 0.5490196078431373
+      }
+    ]
+  },
+  "confidence_strata": [
+    {
+      "floor": 0.0,
+      "label": "any positive",
+      "n_events": 769,
+      "uniform_8": 0.001557861213007519,
+      "uniform_32": 0.009038154090083291,
+      "uniform_128": 0.04118939522912034,
+      "uniform_512": 0.1459958976154946,
+      "uniform_1024": 0.24064645060231316,
+      "segment_adaptive_8": 0.0880671115710405,
+      "segment_adaptive_32": 0.23160825138068397,
+      "segment_adaptive_128": 0.43582186935699574,
+      "segment_adaptive_512": 0.5668224804787992,
+      "segment_adaptive_1024": 0.6237990983776796
+    },
+    {
+      "floor": 2.0,
+      "label": "peak >= 2",
+      "n_events": 409,
+      "uniform_8": 0.002286412540085704,
+      "uniform_32": 0.0167642551042224,
+      "uniform_128": 0.06591930650776001,
+      "uniform_512": 0.23990084231305425,
+      "uniform_1024": 0.38472726217430053,
+      "segment_adaptive_8": 0.208243612579658,
+      "segment_adaptive_32": 0.41643100392132304,
+      "segment_adaptive_128": 0.6739020067999097,
+      "segment_adaptive_512": 0.7697721286495028,
+      "segment_adaptive_1024": 0.8041727407156751
+    },
+    {
+      "floor": 4.0,
+      "label": "peak >= 4",
+      "n_events": 257,
+      "uniform_8": 0.003921189783970946,
+      "uniform_32": 0.023169647126410075,
+      "uniform_128": 0.08963634675508282,
+      "uniform_512": 0.3050224703770503,
+      "uniform_1024": 0.50499301841565,
+      "segment_adaptive_8": 0.2873363679611042,
+      "segment_adaptive_32": 0.5631015968560441,
+      "segment_adaptive_128": 0.7814533721185111,
+      "segment_adaptive_512": 0.8607552772058591,
+      "segment_adaptive_1024": 0.8725143075381271
+    },
+    {
+      "floor": 6.0,
+      "label": "peak >= 6",
+      "n_events": 113,
+      "uniform_8": 0.0027863670720813575,
+      "uniform_32": 0.02622826908541194,
+      "uniform_128": 0.10576083968941112,
+      "uniform_512": 0.34970195148766575,
+      "uniform_1024": 0.5436653954511097,
+      "segment_adaptive_8": 0.21997182711468424,
+      "segment_adaptive_32": 0.5124716553287981,
+      "segment_adaptive_128": 0.7286470143613001,
+      "segment_adaptive_512": 0.7768329554043839,
+      "segment_adaptive_1024": 0.7802343159486016
+    }
+  ]
+}

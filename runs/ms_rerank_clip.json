@@ -1,0 +1,92 @@
+{
+  "config": {
+    "json": "data/ms_raw/t2v.json",
+    "video_dir": "data/ms_videos",
+    "index_dir": "runs/ms_index",
+    "encoder": "siglip2-base-224",
+    "fps": 1.0,
+    "agg": "max",
+    "vlm_budgets": [
+      5,
+      10
+    ],
+    "vlm": "qwen2.5-vl-7b",
+    "tokens_per_frame": 128,
+    "rerank_frames": 4,
+    "index_only": false,
+    "limit": 0,
+    "out": "runs/ms_rerank_clip.json"
+  },
+  "encoder": {
+    "key": "siglip2-base-224",
+    "repo": "google/siglip2-base-patch16-224",
+    "revision": "75de2d55ec2d",
+    "input_size": 224,
+    "embed_dim": 768,
+    "params_total_m": 375.2,
+    "params_vision_m": 92.9,
+    "dtype": "torch.bfloat16",
+    "compiled": false
+  },
+  "chunk_s": 10.0,
+  "iou_threshold": 0.3,
+  "paper_baselines": {
+    "UniIR": [
+      11.2,
+      16.9
+    ],
+    "MM-Ret": [
+      12.4,
+      17.7
+    ],
+    "CoVR": [
+      13.0,
+      18.5
+    ],
+    "E5V": [
+      14.3,
+      20.1
+    ],
+    "LanguageBind": [
+      18.2,
+      25.4
+    ],
+    "InternVideo2": [
+      19.7,
+      26.6
+    ]
+  },
+  "rows": [
+    {
+      "vlm_budget": 5,
+      "n_queries": 1000,
+      "R1": 21.7,
+      "R1_lo": 19.1,
+      "R1_hi": 24.3,
+      "R5": 40.5,
+      "mAP5": 11.654221131564933,
+      "mAP5_lo": 10.655729808725438,
+      "mAP5_hi": 12.6811869532254,
+      "mAP5_matched": 28.834999999999994,
+      "vlm_calls": 18036,
+      "wall_s": 1126.2952196460028,
+      "by_meta_task": {
+        "event": {
+          "R1": 15.56420233463035,
+          "mAP5": 8.644730607866082,
+          "n": 257
+        },
+        "global": {
+          "R1": 25.646123260437374,
+          "mAP5": 14.346914847817299,
+          "n": 503
+        },
+        "object": {
+          "R1": 20.0,
+          "mAP5": 9.233446653713537,
+          "n": 240
+        }
+      }
+    }
+  ]
+}
