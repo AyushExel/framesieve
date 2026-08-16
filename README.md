@@ -238,8 +238,34 @@ Also needs `ffmpeg` on your `PATH`.
 | extra | what it adds |
 |---|---|
 | `framesieve[vlm]` | `confirm=True`: fetch frames and check them with a vision-language model |
-| `framesieve[store]` | keep frames as JPEG blobs beside the index — **~14× faster** frame fetch |
+| `framesieve[store]` | keep the frames themselves beside the index — see below |
 | `framesieve[dev]` | pytest, ruff |
+
+### Keeping the frames too
+
+`--store` writes every sampled frame as a JPEG next to its embedding, in a
+[Lance](https://lancedb.github.io/lance/) dataset. Measured on the same clip:
+
+| | plain index | `--store` |
+|---|---|---|
+| disk | 5 MB per hour | **275 MB per hour** (0.3× the video) |
+| indexing throughput | 222× realtime | 104× realtime |
+| fetching a frame | 14.5 ms | **0.9 ms** |
+| needs the video file afterwards | yes | **no** |
+
+It is off by default because the disk is 55× and most of it buys nothing: search
+never touches pixels, and even with `confirm` the model itself dominates — a
+32-call search goes from about 1.4 s to 1.0 s, not 15× faster.
+
+Turn it on when you confirm a lot, or when you want the index to be
+self-contained and the source video to go somewhere cheap.
+
+```bash
+pip install "framesieve[store]"
+framesieve index my_video.mp4 --store
+```
+
+Search picks up the store automatically if one is there.
 
 ## Contributing
 

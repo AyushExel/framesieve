@@ -16,9 +16,10 @@ First public release.
   `--json` for use in a pipeline.
 - Five candidate-selection strategies behind one interface (`uniform`, `topk`,
   `nms`, `segment`, `segment_adaptive`).
-- Optional Lance frame store (`--store`): frames kept as JPEG blobs beside their
-  embeddings, making the refine stage's frame fetch about 14× faster for roughly
-  0.3× the video in disk.
+- Optional Lance frame store (`--store` / `index(store=True)`): every sampled
+  frame kept as a JPEG beside its embedding. Fetching a frame goes from 14.5 ms
+  to 0.9 ms and the index stops needing the source video, at 275 MB per hour of
+  disk against 5 MB and about half the indexing throughput. Off by default.
 - `framesieve.pooling`: `topk_mean`, `recommend_k`, `k_range` and `sweep_k`,
   numpy-only and independent of the rest of the package.
 

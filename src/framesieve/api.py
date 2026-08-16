@@ -149,15 +149,19 @@ class SearchResults(Sequence[Hit]):
 
 
 def index_path_for(video: str, encoder: str = DEFAULT_ENCODER,
-                   fps: float = 1.0) -> str:
+                   fps: float = 1.0, store: bool = False) -> str:
     """Where the sidecar for this (video, encoder, fps) lives.
 
     The encoder and rate are in the filename on purpose: an index built with a
     different encoder is not interchangeable, and silently reusing one would
     produce plausible nonsense.
+
+    `store=True` names the frame-store form, which keeps the frames themselves
+    beside the embeddings and so ends in .lance rather than .npz.
     """
     stem = os.path.splitext(video)[0]
-    return f"{stem}.framesieve-{encoder}-{fps:g}fps.npz"
+    ext = "lance" if store else "npz"
+    return f"{stem}.framesieve-{encoder}-{fps:g}fps.{ext}"
 
 
 class VideoIndex:
@@ -168,13 +172,20 @@ class VideoIndex:
 
     def __init__(self, frame_index: FrameIndex, video: str | None = None,
                  encoder: str = DEFAULT_ENCODER, vlm: str = DEFAULT_VLM,
-                 path: str | None = None, device: str | None = None):
+                 path: str | None = None, device: str | None = None,
+                 store=None):
         self._index = frame_index
         self.video = video or frame_index.stats.video
         self.path = path
         self._encoder_name = encoder
         self._vlm_name = vlm
         self._device = device
+        # a FrameStore, when the index was built with store=True. It holds the
+        # frames as well as the embeddings, so it can serve them back by
+        # byte-range read instead of seeking the video: 0.9 ms a frame against
+        # 14.5 ms, measured. It also means confirm= and frames() work without
+        # the source video present at all.
+        self._store = store
         self._searcher: CascadeSearcher | None = None
         self._vlm = None
         self._fetcher = None
@@ -263,13 +274,17 @@ class VideoIndex:
                                     max_pixels=px,
                                     min_pixels=min(px, 64 * 28 * 28))
         if s.fetcher is None:
-            if not self.video or not os.path.exists(str(self.video)):
+            if self._store is not None:
+                s.fetcher = self._store
+            elif self.video and os.path.exists(str(self.video)):
+                from .fetch import FrameFetcher
+                s.fetcher = FrameFetcher(str(self.video), workers=16)
+            else:
                 raise FileNotFoundError(
-                    f"confirm=True needs the video file to fetch frames from, "
-                    f"and {self.video!r} is not there. Pass video= when loading "
-                    f"an index whose source has moved.")
-            from .fetch import FrameFetcher
-            s.fetcher = FrameFetcher(str(self.video), workers=16)
+                    f"confirm=True needs the frames. This index has no frame "
+                    f"store, and the source video {self.video!r} is not there. "
+                    f"Pass video= when loading an index whose source has moved, "
+                    f"or build the index with store=True.")
 
     # -- the actual API ----------------------------------------------------
 
@@ -334,10 +349,13 @@ class VideoIndex:
         ts = [float(t) for t in times]
         if not ts:
             return []
+        if self._store is not None:
+            _, frames = self._store.fetch(ts)
+            return list(frames)
         if not self.video or not os.path.exists(str(self.video)):
             raise FileNotFoundError(
-                f"fetching frames needs the video file, and {self.video!r} is "
-                f"not there")
+                f"fetching frames needs either a frame store or the video "
+                f"file, and {self.video!r} is not there")
         from .fetch import FrameFetcher
         f = FrameFetcher(str(self.video), size=size, workers=16)
         _, frames = f.fetch(ts)
@@ -358,21 +376,39 @@ class VideoIndex:
 
 def index(video: str, *, encoder: str = DEFAULT_ENCODER, fps: float = 1.0,
           vlm: str = DEFAULT_VLM, device: str | None = None,
-          save: bool = True, batch: int = 256,
+          store: bool = False, save: bool = True, batch: int = 256,
           size: int = 256, segment_tau: float = 0.0,
           pixel_gate_tau: float = 0.0, start: float = 0.0,
           duration: float = 0.0, gpu_decode: bool = False, seed: int = 0,
-          verbose: bool = False) -> VideoIndex:
+          jpeg_quality: int = 90, verbose: bool = False) -> VideoIndex:
     """Index a video: decode at `fps`, embed every frame, write a sidecar.
 
     Costs roughly 15 seconds and 5 MB per hour of video on one GPU. Runs once;
     every search after this reads the sidecar.
+
+    `store=True` also keeps every sampled frame as a JPEG beside its embedding.
+    That makes confirm= about 15x faster at fetching frames (0.9 ms each against
+    14.5 ms of ffmpeg seeking) and lets the index work without the source video
+    present -- at roughly 55x the disk, 275 MB per hour against 5 MB, and about
+    half the indexing throughput. Off by default because most of that disk buys
+    nothing unless you use confirm= heavily. Needs `pip install pylance`.
     """
     if not os.path.exists(video):
         raise FileNotFoundError(video)
     from .encoders import SiglipEncoder
-    fi = build_index(video, SiglipEncoder(encoder, device=device),
-                     target_fps=fps, batch=batch,
+    enc = SiglipEncoder(encoder, device=device)
+
+    if store:
+        from .store import FrameStore, build_store
+        out = index_path_for(video, encoder, fps, store=True)
+        build_store(video, enc, out, target_fps=fps, size=size, batch=batch,
+                    segment_tau=segment_tau, jpeg_quality=jpeg_quality,
+                    gpu_decode=gpu_decode, seed=seed)
+        fs_ = FrameStore(out)
+        return VideoIndex(fs_.to_frame_index(), video=video, encoder=encoder,
+                          vlm=vlm, path=out, device=device, store=fs_)
+
+    fi = build_index(video, enc, target_fps=fps, batch=batch,
                      size=size, pixel_gate_tau=pixel_gate_tau,
                      segment_tau=segment_tau, start_s=start,
                      duration_s=duration, gpu_decode=gpu_decode, seed=seed,
@@ -391,17 +427,29 @@ def load(path_or_video: str, *, video: str | None = None,
     Needs no GPU and no model: an index is a small array file, and reading it is
     the cheap half of everything this library does.
     """
-    p = (path_or_video if path_or_video.endswith(".npz")
-         else index_path_for(path_or_video, encoder, fps))
+    if path_or_video.endswith((".npz", ".lance")):
+        p = path_or_video
+    else:
+        # a frame store carries everything the plain index does and more, so
+        # prefer it when both are present
+        lance_p = index_path_for(path_or_video, encoder, fps, store=True)
+        npz_p = index_path_for(path_or_video, encoder, fps)
+        p = lance_p if os.path.exists(lance_p) else npz_p
     if not os.path.exists(p):
         raise FileNotFoundError(
             f"no index at {p}. Build one with framesieve.index({path_or_video!r}) "
             f"or `framesieve index {path_or_video}`.")
-    fi = FrameIndex.load(p)
-    src = video or (path_or_video if not path_or_video.endswith(".npz")
+
+    if p.endswith(".lance"):
+        from .store import FrameStore
+        st = FrameStore(p)
+        fi = st.to_frame_index()
+    else:
+        st, fi = None, FrameIndex.load(p)
+    src = video or (path_or_video if not path_or_video.endswith((".npz", ".lance"))
                     else fi.stats.video)
     return VideoIndex(fi, video=src, encoder=encoder, vlm=vlm, path=p,
-                      device=device)
+                      device=device, store=st)
 
 
 def open(video: str, *, encoder: str = DEFAULT_ENCODER, fps: float = 1.0,
@@ -412,9 +460,11 @@ def open(video: str, *, encoder: str = DEFAULT_ENCODER, fps: float = 1.0,
     The one call most programs want. Shadows the builtin inside this module
     only; as `framesieve.open(...)` there is no ambiguity.
     """
-    p = index_path_for(video, encoder, fps)
-    if os.path.exists(p) and not rebuild:
-        return load(p, video=video, encoder=encoder, fps=fps, vlm=vlm,
-                    device=device)
+    existing = [q for q in (index_path_for(video, encoder, fps, store=True),
+                            index_path_for(video, encoder, fps))
+                if os.path.exists(q)]
+    if existing and not rebuild:
+        return load(existing[0], video=video, encoder=encoder, fps=fps,
+                    vlm=vlm, device=device)
     return index(video, encoder=encoder, fps=fps, vlm=vlm, device=device,
                  **kwargs)

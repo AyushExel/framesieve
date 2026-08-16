@@ -48,7 +48,7 @@ def _err(*a) -> None:
 
 
 def cmd_index(args) -> int:
-    from .index import build_index
+    from . import api
 
     if not os.path.exists(args.video):
         _err(f"no such file: {args.video}")
@@ -63,50 +63,37 @@ def cmd_index(args) -> int:
                  "building a plain index instead")
             use_store = False
 
-    out = args.out or (
-        f"{os.path.splitext(args.video)[0]}.framesieve-{args.encoder}-"
-        f"{args.fps:g}fps.{'lance' if use_store else 'npz'}")
+    out = args.out or api.index_path_for(args.video, args.encoder, args.fps,
+                                         store=use_store)
     if os.path.exists(out) and not args.force:
         _err(f"index already exists: {out}\n  (use --force to rebuild)")
         return 0
 
-    from .encoders import SiglipEncoder
-    enc = SiglipEncoder(args.encoder, device=args.device)
     _err(f"indexing {args.video}")
-    _err(f"  encoder {enc.spec.repo} @ {enc.spec.revision}, {args.fps} fps, "
-         f"on {enc.device}")
     t0 = time.perf_counter()
-
-    if use_store:
-        # keeps the decoded frames as JPEG blobs beside their embeddings, so the
-        # refine stage reads bytes instead of seeking the video: 0.9 ms a frame
-        # against 12 ms across 32 workers, for about 0.3x the video in disk
-        from .store import build_store
-        build_store(args.video, enc, out, target_fps=args.fps, size=args.size,
-                    batch=args.batch, segment_tau=args.segment_tau,
-                    jpeg_quality=args.jpeg_quality, gpu_decode=args.gpu_decode,
-                    seed=args.seed)
-        _err(f"  wrote {out}")
-        if args.json:
-            print(json.dumps({"index": out, "store": True}))
-        return 0
-
-    idx = build_index(args.video, enc, target_fps=args.fps, size=args.size,
-                      batch=args.batch, segment_tau=args.segment_tau,
-                      pixel_gate_tau=args.pixel_gate_tau,
-                      gpu_decode=args.gpu_decode, seed=args.seed,
-                      verbose=not args.json)
-    idx.save(out)
+    v = api.index(args.video, encoder=args.encoder, fps=args.fps,
+                  device=args.device, store=use_store, size=args.size,
+                  batch=args.batch, segment_tau=args.segment_tau,
+                  pixel_gate_tau=args.pixel_gate_tau,
+                  gpu_decode=args.gpu_decode, seed=args.seed,
+                  jpeg_quality=args.jpeg_quality, verbose=not args.json)
     dt = time.perf_counter() - t0
-    mb = os.path.getsize(out) / 1e6
-    hours = idx.stats.duration_s / 3600
-    _err(f"  wrote {out}  ({mb:.1f} MB, {mb/max(hours,1e-9):.1f} MB per hour)")
-    _err(f"  {dt:.1f} s for {hours:.2f} h of video "
-         f"= {idx.stats.duration_s/max(dt,1e-9):.0f}x realtime")
+    hours = v.duration / 3600
+    size_b = (sum(os.path.getsize(os.path.join(r, f))
+                  for r, _, fs_ in os.walk(v.path) for f in fs_)
+              if os.path.isdir(v.path) else os.path.getsize(v.path))
+    mb = size_b / 1e6
+    _err(f"  wrote {v.path}  ({mb:.1f} MB, {mb/max(hours,1e-9):.1f} MB per hour)")
+    # two numbers, because they answer different questions: the throughput is
+    # what a longer video will run at, and the wall clock includes loading the
+    # model, which is a one-off that dominates on a short clip and disappears on
+    # a long one. Reporting only the wall clock makes a 90-second test look slow.
+    _err(f"  {v.stats.realtime_factor:.0f}x realtime encoding, "
+         f"{dt:.1f} s total for {hours:.2f} h including model load")
     if args.json:
-        print(json.dumps({"index": out, "megabytes": round(mb, 2),
-                          "frames": int(idx.stats.n_frames),
-                          "duration_s": round(idx.stats.duration_s, 2),
+        print(json.dumps({"index": v.path, "store": use_store,
+                          "megabytes": round(mb, 2), "frames": len(v),
+                          "duration_s": round(v.duration, 2),
                           "wall_s": round(dt, 2)}))
     return 0
 
@@ -270,7 +257,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--store", action="store_true",
                    help="also keep every sampled frame as a JPEG blob in a "
                         "Lance dataset: ~0.3x the video in disk, and makes "
-                        "--confirm's frame fetch ~14x faster (needs pylance)")
+                        "--confirm's frame fetch ~15x faster, and lets the "
+                        "index work without the video. Costs ~55x the disk "
+                        "(needs pylance)")
     p.add_argument("--jpeg-quality", type=int, default=90,
                    help="quality for --store (default: %(default)s)")
     p.add_argument("--force", action="store_true", help="rebuild if it exists")

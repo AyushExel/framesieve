@@ -40,6 +40,7 @@ and 5 MB per hour** of video on one GPU. Needs torch.
 | `start`, `duration` | `0.0` | index only part of the video, in seconds |
 | `gpu_decode` | `False` | decode with NVDEC: fewer CPU cores, slower wall clock on most hosts |
 | `device` | auto | `"cuda"`, `"mps"` or `"cpu"`; picks whichever is present |
+| `store` | `False` | also keep every frame as a JPEG beside its embedding: 15× faster frame fetch and no need for the video afterwards, at 55× the disk. Needs `pylance` |
 | `seed` | `0` | |
 
 ### `fs.load(path_or_video, *, video=None, encoder=..., fps=1.0)`
@@ -48,7 +49,7 @@ Load an existing index, given either the sidecar path or the video it came from.
 **Needs no GPU and no model.** Pass `video=` if the source file has moved and you
 still want `confirm=True` or `frames()` to work.
 
-### `fs.index_path_for(video, encoder=..., fps=1.0) -> str`
+### `fs.index_path_for(video, encoder=..., fps=1.0, store=False) -> str`
 
 Where the sidecar for that combination lives. The encoder and rate are in the
 filename because an index built with a different encoder is not interchangeable,

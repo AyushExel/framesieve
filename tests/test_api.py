@@ -119,6 +119,15 @@ def test_search_rejects_a_bad_strategy_and_a_bad_k():
         v.search("x", k=0)
 
 
+def test_index_path_names_the_store_form_separately():
+    """A frame store and a plain index are different files, so `--store` cannot
+    silently overwrite a plain index or be mistaken for one."""
+    npz = fs.index_path_for("/tmp/a.mp4", "siglip2-base-224", 1.0)
+    lance = fs.index_path_for("/tmp/a.mp4", "siglip2-base-224", 1.0, store=True)
+    assert npz.endswith(".npz") and lance.endswith(".lance")
+    assert npz[: -len(".npz")] == lance[: -len(".lance")]
+
+
 def test_index_path_encodes_the_encoder_and_rate():
     """Two indexes built with different encoders are not interchangeable, so the
     filename has to keep them apart."""
@@ -136,7 +145,7 @@ def test_load_points_at_the_fix_when_there_is_no_index(tmp_path):
 
 def test_frames_without_the_video_file_says_so():
     v = _fake_index()
-    with pytest.raises(FileNotFoundError, match="needs the video"):
+    with pytest.raises(FileNotFoundError, match="frame store or the video"):
         v.frames([0.0, 1.0])
     assert v.frames([]) == []
 
@@ -230,3 +239,12 @@ def test_cpu_gets_float32_because_bfloat16_is_emulated_there():
     assert pick_dtype("cpu") is torch.float32
     assert pick_dtype("cuda") is torch.bfloat16
     assert pick_dtype("cpu", torch.float16) is torch.float16   # override wins
+
+
+def test_store_and_plain_index_are_different_files():
+    """`--store` must not be able to overwrite a plain index, or be loaded as
+    one: they hold different things and the loader branches on the suffix."""
+    a = fs.index_path_for("/tmp/v.mp4", store=False)
+    b = fs.index_path_for("/tmp/v.mp4", store=True)
+    assert a != b
+    assert a.endswith(".npz") and b.endswith(".lance")
