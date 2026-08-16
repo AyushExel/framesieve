@@ -199,9 +199,19 @@ def test_score_accepts_a_precomputed_vector_and_checks_its_shape():
 
 
 def test_score_normalises_the_vector_it_is_given():
+    """Scaling a query must not change what comes back.
+
+    Asserted as identical ORDER plus a float32 tolerance, not as bit equality:
+    normalising q and 17*q gives unit vectors that differ in the last bits, and
+    the products then differ by ~1e-7 in a way that depends on the BLAS. An
+    earlier version of this test used np.allclose's defaults, passed on aarch64
+    and failed on x86.
+    """
     v = _fake_index(dim=8)
     q = np.ones(8, dtype=np.float32)
-    assert np.allclose(v.score(q), v.score(q * 17.0))
+    a, b = v.score(q), v.score(q * 17.0)
+    assert np.array_equal(np.argsort(-a), np.argsort(-b))
+    assert np.allclose(a, b, rtol=1e-4, atol=1e-6)
 
 
 def test_device_selection_falls_back_rather_than_raising(monkeypatch):
