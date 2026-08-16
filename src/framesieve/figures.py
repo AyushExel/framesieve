@@ -25,17 +25,30 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 
+# Teal-led and cool-neutral, found by stepping hue in OKLCH at the lightness the
+# validator wants rather than picked by eye. The previous palette passed every
+# check too -- its problem was that warm cream plus a terracotta accent is the
+# house style of half the pages on the internet right now, and a tool should not
+# look like the thing that generated it.
+#
+# bench/validate_palette.py, adjacent pairs:
+#   light  worst CVD dE 7.4 (amber<->green, deutan), normal-vision 16.0, all >= 3:1
+#   dark   worst CVD dE 6.6 (same pair), normal-vision 16.2, all >= 3:1
+# Both land in the 6-8 band, which is legal only with secondary encoding -- every
+# series in these figures is direct-labelled, which is that encoding. Surfaces
+# below are further from the series than the ones validated, so contrast only
+# improves on the numbers above.
 THEME = {
     "light": dict(
-        surface="#fcfcfb", ink="#0b0b0b", ink2="#52514e", ink3="#8a8880",
-        grid="#e4e3de",
-        series=["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4"],
-        seq="#2a78d6", muted="#b9b7ae"),
+        surface="#ffffff", ink="#0f1419", ink2="#4a5560", ink3="#8a95a1",
+        grid="#e4e9ee",
+        series=["#00989a", "#7971d0", "#c35775", "#a67700", "#1c985a"],
+        seq="#00989a", muted="#b6bec7"),
     "dark": dict(
-        surface="#1a1a19", ink="#ffffff", ink2="#c3c2b7", ink3="#8a8880",
-        grid="#33322f",
-        series=["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181"],
-        seq="#3987e5", muted="#575651"),
+        surface="#12171c", ink="#eef2f5", ink2="#a3b0bd", ink3="#6f7d8a",
+        grid="#253039",
+        series=["#009496", "#736ace", "#c04d6e", "#a27000", "#009351"],
+        seq="#009496", muted="#4c5967"),
 }
 
 # Strategy -> fixed slot, so a figure that drops a series never repaints the

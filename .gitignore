@@ -11,10 +11,6 @@ figures/*.pdf
 # scripts/make_readme_assets.py and scripts/make_figures.py.
 !figures/banner.*.png
 !figures/at_a_glance.*.png
-!figures/cost_hierarchy.*.png
-!figures/recall_curve.*.png
-!figures/decode_scaling.*.png
-!figures/confidence.*.png
 
 .venv/
 __pycache__/

@@ -71,8 +71,8 @@ def banner(mode: str = "light") -> str:
             fontsize=13, color=t["ink2"], va="center")
     ax.text(1.0, 0.62, "4.5 hours of footage", fontsize=12.5, color=t["ink2"],
             ha="right", va="center")
-    ax.text(1.0, 0.10, "32 model calls  ·  1.5 ms to rank", fontsize=12.5,
-            color=t["series"][1], ha="right", va="center", fontweight="600",
+    ax.text(1.0, 0.10, "32 model calls  ·  25 ms to search", fontsize=12.5,
+            color=t["series"][0], ha="right", va="center", fontweight="600",
             family="monospace")
     ax.set_xlim(0, 1); ax.set_ylim(0, 1)
 
@@ -82,7 +82,7 @@ def banner(mode: str = "light") -> str:
         a.imshow(plt.imread(p))
         a.set_xticks([]); a.set_yticks([])
         for s in a.spines.values():
-            s.set_edgecolor(t["series"][1]); s.set_linewidth(2.0)
+            s.set_edgecolor(t["series"][0]); s.set_linewidth(2.0)
         secs = int(os.path.basename(p).split("_t")[1].split(".")[0])
         a.set_xlabel(f"{secs//3600}:{secs%3600//60:02d}:{secs%60:02d}",
                      fontsize=10.5, color=t["ink2"], family="monospace",
@@ -128,7 +128,7 @@ def banner(mode: str = "light") -> str:
 
     n_uniform = row(picks["uniform"], 0.44, t["muted"], "uniform", False)
     n_ours = row(picks.get("segment_adaptive", picks.get("segment", [])), 0.06,
-                 t["series"][1], "framesieve", True)
+                 t["series"][0], "framesieve", True)
 
     fig.text(0.035, 0.012,
              f"Every grey bar is a tunnel the ground truth marks. Both rows spent "
@@ -144,8 +144,8 @@ def at_a_glance(mode: str = "light") -> str:
     t = THEME[mode]
     cards = [
         ("15 s", "to index an hour of video", "and 5 MB, measured over 205 h"),
-        ("1.5 ms", "to search 4.5 hours", "retrieval; ~1 s with a VLM on top"),
-        ("26×", "the recall of uniform sampling", "at the same 32 model calls"),
+        ("25 ms", "to search all 4.5 hours", "measured on 20 fresh queries"),
+        ("26×", "what sampling every Nth frame finds", "at the same 32 model calls"),
     ]
     fig, axes = plt.subplots(1, 3, figsize=(13.0, 2.05))
     fig.patch.set_facecolor(t["surface"])
@@ -156,7 +156,7 @@ def at_a_glance(mode: str = "light") -> str:
             facecolor=t["surface"], edgecolor=t["grid"], linewidth=1.4,
             transform=ax.transAxes, zorder=0))
         ax.text(0.075, 0.66, big, fontsize=31, fontweight="600",
-                color=t["series"][1], va="center", family="monospace")
+                color=t["series"][0], va="center", family="monospace")
         ax.text(0.075, 0.35, mid, fontsize=12.5, color=t["ink"], va="center")
         ax.text(0.075, 0.17, small, fontsize=10.5, color=t["ink3"], va="center")
     fig.subplots_adjust(left=0.012, right=0.988, top=0.96, bottom=0.04,
