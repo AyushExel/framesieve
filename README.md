@@ -1,6 +1,6 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="figures/banner.dark.png">
-  <img alt="framesieve — find things in video by describing them. Four searches of one 4.5-hour video: a station platform, a stone viaduct, the sea, and a red signal light, each returning the correct frame with a timestamp and the vision-language model's confirmation score." src="figures/banner.light.png">
+  <img alt="framesieve: find things in video by describing them. Four searches of one 4.5-hour video: a station platform, a stone viaduct, the sea, and a red signal light, each returning the correct frame with a timestamp and the vision-language model's confirmation score." src="figures/banner.light.png">
 </picture>
 
 <p align="center">
@@ -14,8 +14,8 @@
 
 **Find things in video by describing them.**
 
-You have hours of footage — security cameras, dashcams, drone survey, recorded
-meetings, gameplay — and you want the bit where the red car pulls in. Watching it
+You have hours of footage (security cameras, dashcams, drone survey, recorded
+meetings, gameplay) and you want the bit where the red car pulls in. Watching it
 is not an option. Running a vision model over every frame is 86,400 calls per day
 of video, so that is not an option either.
 
@@ -31,7 +31,7 @@ framesieve search my_video.mp4 "a red car pulling in"
 
 **No GPU required.** Indexing an hour of video takes a minute or two on a
 laptop CPU instead of fifteen seconds on a GPU, and a search is ~110 ms instead
-of ~6 ms — still interactive.
+of ~6 ms, which is still interactive.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="figures/at_a_glance.dark.png">
@@ -68,7 +68,7 @@ timing   : select 141.2 ms, fetch 0.31 s, vlm 0.70 s
 ```
 
 Every one of those sixteen candidates came back confirmed. `select` includes
-loading the text encoder, which happens once per process — in a long-running
+loading the text encoder, which happens once per process. In a long-running
 program a query costs about 6 ms.
 
 Add `--save-frames hits/` to write the matching frames out as JPEGs.
@@ -104,11 +104,11 @@ with no GPU and search them there.
 ### Searching what was said and what was written
 
 A frame encoder cannot hear. On a meeting, a lecture, an interview or most of
-YouTube, the thing you want was spoken rather than shown — so `--audio`
+YouTube, the thing you want was spoken rather than shown, so `--audio`
 transcribes with Whisper and indexes the timed segments alongside the frames.
 
-A 224-pixel embedding also cannot read — on MomentSeeker's OCR split the
-retrieval stage scores 3.4, close to chance — so `--ocr` reads the text on
+A 224-pixel embedding also cannot read. On MomentSeeker's OCR split the
+retrieval stage scores 3.4, close to chance, so `--ocr` reads the text on
 screen and indexes that too.
 
 ```bash
@@ -133,7 +133,7 @@ for hit in video.search("a drone flying"):
 A frame similarity, a spoken sentence and a line of on-screen text are **three
 different quantities**, so they are never ranked against each other. Each source
 is ranked within itself, and they are merged on *time*: when signals land on the
-same moment it comes back once, naming all of them, and promoted — because
+same moment it comes back once, naming all of them, and promoted, because
 agreement between independent signals beats any one list's leader.
 
 ```
@@ -151,8 +151,8 @@ footage whose text changes under a still picture.
 ### Searching a whole library
 
 Everything above holds one video's vectors in memory, which is right up to a few
-hundred hours. Past that — or as soon as you want to search *across* recordings
-rather than within one — switch to a `Collection`, which is the same vectors in
+hundred hours. Past that, or as soon as you want to search *across* recordings
+rather than within one, switch to a `Collection`, which is the same vectors in
 [LanceDB](https://lancedb.com) on disk.
 
 | footage | vectors | as a numpy array | |
@@ -175,32 +175,32 @@ for hit in lib.search("a red car", k=20):
     print(hit.video, hit.timecode, hit.score)
 ```
 
-Measured on **10 million vectors** — 2,778 video-hours, 62 GB of vectors and
-index on disk:
+Measured on **10 million vectors**, or 2,778 video-hours, with 62 GB of vectors
+and index on disk:
 
 | | |
 |---|---|
 | open the collection | 0.18 GB resident |
 | search | **112 ms** median, 139 ms p90 |
-| peak memory | 5.5 GB — runs under an 8 GB cap, OOM-killed at 4 GB |
+| peak memory | 5.5 GB, runs under an 8 GB cap, OOM-killed at 4 GB |
 | the same vectors in numpy | 31 GB resident, always |
 
-Not constant memory — graph traversal has a real working set — but about 6×
-less than holding the corpus, which is the difference between a 2,778-hour
+Not constant memory, since graph traversal has a real working set, but about
+6× less than holding the corpus. That is the difference between a 2,778-hour
 library running on a laptop and not running at all.
 
 On a 205-hour corpus of genuinely distinct video, the measure that matters is
-whether the **top hit** matches an exact scan — 15 queries, exact scan as the
-answer key:
+whether the **top hit** matches an exact scan. Over 15 queries, with an exact
+scan as the answer key:
 
 | index | size | top hit correct | latency |
 |---|---|---|---|
 | **IvfHnswFlat** (default) | 2.3 GB | **15/15** | 10 ms |
 | IvfFlat | 2.3 GB | 9/15 | 16 ms |
 | IvfFlat, `nprobes=400` | 2.3 GB | 15/15 | 81 ms |
-| exact scan | — | 15/15 | 133 ms |
+| exact scan | n/a | 15/15 | 133 ms |
 
-IVF only matches the graph by probing half its partitions, for 8× the latency —
+IVF only matches the graph by probing half its partitions, for 8× the latency:
 partition scanning grows with `nprobes` and graph traversal does not.
 
 One warning worth having: the **quantized index types do not work** on these
@@ -230,15 +230,15 @@ Full guide, including where the threshold is and which index type to use:
 ### Running on CPU
 
 Everything picks CUDA if there is one, Apple silicon if there is one, and CPU
-otherwise — no flags, no configuration. The retrieval encoder is 93M parameters,
-small enough that CPU is a real option rather than a degraded mode:
+otherwise, with no flags and no configuration. The retrieval encoder is 93M
+parameters, small enough that CPU is a real option rather than a degraded mode:
 
 | | index 1 hour of video | search |
 |---|---|---|
 | GPU (GH200) | 15 s | 6 ms |
 | CPU (64 cores) | 1 min | 110 ms |
 
-Ranking is the same either way — a matrix multiply against an index that already
+Ranking is the same either way, a matrix multiply against an index that already
 exists, 0.03 ms for a 4.5-hour video. The difference is encoding your query
 text, which is a model forward pass: about 1 ms on a GPU and 100 ms on a CPU.
 Still interactive, just not instant. The one part that really wants a GPU is
@@ -263,7 +263,7 @@ Good fits:
 
 Does not work today:
 
-- **Where something is in the frame.** "the cup on the left" does not work — it
+- **Where something is in the frame.** "the cup on the left" does not work; it
   matches whole frames, not regions.
 
 Not what it is for, and not planned:
@@ -300,7 +300,7 @@ handful of frames that survived.
 That is also why the index is worth building: the cheap pass runs once per
 *video*, the expensive pass runs once per *query*.
 
-**Choosing `k`** — it is how many candidates you consider, and with `confirm` how
+**Choosing `k`.** It is how many candidates you consider, and with `confirm` how
 many model calls you spend. Higher finds more and costs more; there is no value
 at which you are finished. Start at 32.
 
@@ -346,7 +346,7 @@ work: **[the write-up](https://batchnorm.com)**.
 ## Install
 
 ```bash
-# torch first, from the index for your platform — installing it as a transitive
+# torch first, from the index for your platform. Installing it as a transitive
 # dependency is the usual way to end up on a CPU-only wheel, which is silent and
 # about 30x slower
 pip install torch --index-url https://download.pytorch.org/whl/cu128
@@ -376,7 +376,7 @@ Also needs `ffmpeg` on your `PATH`.
 | needs the video file afterwards | yes | **no** |
 
 It is off by default because the disk is 55× and most of it buys nothing: search
-never touches pixels, and even with `confirm` the model itself dominates — a
+never touches pixels, and even with `confirm` the model itself dominates: a
 32-call search goes from about 1.4 s to 1.0 s, not 15× faster.
 
 Turn it on when you confirm a lot, or when you want the index to be
@@ -392,7 +392,7 @@ Search picks up the store automatically if one is there.
 ## Contributing
 
 Bug reports, benchmarks on your own footage, and new encoder or VLM backends are
-all welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Tests that need a GPU, a
+all welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). Tests that need a GPU, a
 model download or a video file skip themselves, so CI stays green on CPU and a
 red build means a real bug.
 
