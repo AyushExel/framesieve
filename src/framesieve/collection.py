@@ -176,6 +176,11 @@ class Collection:
         """
         from .index import FrameIndex
 
+        if index_path.endswith(".npz"):
+            raise ValueError(
+                f"{index_path} is the pre-Lance index format, which the library "
+                f"no longer reads. Convert it first:\n"
+                f"  python scripts/convert_indexes.py '<dir>/*.npz'")
         idx = FrameIndex.load(index_path)
         name = video or idx.stats.video or index_path
         return self._append(name, idx.ts, idx.emb)

@@ -537,3 +537,16 @@ def test_timed_text_round_trips_with_its_kind(tmp_path):
         assert back.meta["a"] == 1
         assert np.allclose(back.emb, emb)
         assert back.starts.tolist() == [0.0, 2.0]
+
+
+@needs_lancedb
+def test_adding_a_legacy_index_to_a_collection_says_how_to_convert(tmp_path):
+    """The error a user gets for a pre-Lance file should name the fix, not
+    surface a LanceError about walking a directory."""
+    from framesieve.collection import Collection
+
+    stale = tmp_path / "old.npz"
+    stale.write_bytes(b"not really an index")
+    lib = Collection(str(tmp_path / "c.lancedb"))
+    with pytest.raises(ValueError, match="convert_indexes"):
+        lib.add_index(str(stale))

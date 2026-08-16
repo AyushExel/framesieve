@@ -27,11 +27,13 @@ uri = os.path.join(folder, "_framesieve.lancedb")
 lib = fs.Collection(uri)
 
 if len(lib) == 0:
-    # sidecars first if they exist, since that skips re-encoding entirely
-    sidecars = sorted(glob.glob(os.path.join(folder, "*.npz")))
-    if sidecars:
-        print(f"loading {len(sidecars)} existing indexes")
-        lib.add_indexes(os.path.join(folder, "*.npz"))
+    # existing indexes first, since merging them skips re-encoding entirely
+    built = sorted(glob.glob(os.path.join(folder, "*.lance")))
+    built = [p for p in built if not p.endswith((".speech.lance", ".text.lance"))]
+    if built:
+        print(f"merging {len(built)} existing indexes")
+        for p in built:
+            lib.add_index(p)
     else:
         vids = sorted(p for ext in ("mp4", "mkv", "mov", "webm")
                       for p in glob.glob(os.path.join(folder, f"*.{ext}")))

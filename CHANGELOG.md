@@ -5,7 +5,24 @@ All notable changes to this project are recorded here. This project follows
 API in `framesieve/api.py` may change, and anything under `framesieve.index`,
 `.search`, `.encoders` or `.vlm` may change without notice.
 
-## [0.1.0] — unreleased
+## [0.2.0] — 2026-08-16
+
+Everything below was added or fixed after 0.1.0 went to PyPI. **0.1.0 is broken
+on machines without a GPU and its `--store` wrote an index nothing could read;
+use this instead.**
+
+### Fixed
+- **Ran only on a GPU.** `index()` died on a CPU-only machine with
+  `RuntimeError: No CUDA GPUs are available`, raised from inside torch. Now picks
+  CUDA, then Apple silicon, then CPU, with `float32` on CPU because `bfloat16` is
+  emulated there. Indexing an hour of video takes 1–2 minutes on a CPU against
+  15 seconds on a GPU; search is ~110 ms against ~6 ms.
+- **`--store` wrote an index that could not be read back.** It produced a
+  `.lance` frame store that `search` never looked for.
+- **A frameless index was mistaken for a frame store**, failing at the moment
+  someone asked for a frame rather than when the index was opened.
+
+## [0.1.0] — 2026-08-16
 
 First public release.
 

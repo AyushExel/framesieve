@@ -24,7 +24,7 @@ level and stay importable.
 
 from __future__ import annotations
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 # These come last on purpose. `from .api import index` must run AFTER the import
 # of .api itself, because importing .api registers the `framesieve.index`

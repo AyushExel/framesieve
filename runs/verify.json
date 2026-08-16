@@ -9,8 +9,8 @@
     "gpu": "NVIDIA GH200 480GB, 97871 MiB, 580.105.08",
     "cpu_count": 64,
     "ffmpeg": "ffmpeg version 4.4.2-0ubuntu0.22.04.1 Copyright (c) 2000-2021 the FFmpeg developers",
-    "git_commit": "3f26e77b5f6374b0066789764c0f4b8272d64316",
-    "git_dirty": true,
+    "git_commit": "fcb4a0db47f746e0505ed79df08844e85ce1c57b",
+    "git_dirty": false,
     "model_revisions": {
       "siglip-base-224": "7fd15f0689c7",
       "siglip2-base-224": "75de2d55ec2d",

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "framesieve"
-version = "0.1.0"
+version = "0.2.0"
 description = "Search long video without running a VLM on every frame."
 readme = "README.md"
 requires-python = ">=3.10"
