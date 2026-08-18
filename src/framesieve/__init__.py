@@ -3,7 +3,7 @@
     import framesieve as fs
 
     video = fs.open("holiday.mp4")                 # index once, ~15 s per hour
-    for hit in video.search("a dark tunnel"):      # ~1 ms per query after that
+    for hit in video.search("a dark tunnel"):      # ~6 ms per query after that
         print(hit.timecode, hit.score)
 
     hits = video.search("a dark tunnel", k=8, confirm=True)   # ask a real VLM
