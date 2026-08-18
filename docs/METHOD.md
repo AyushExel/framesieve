@@ -70,7 +70,8 @@ Confirmation is a **lookup** into the ground truth rather than a second VLM call
 That is exact — same model, same frame, same settings — and it is what makes a
 4-strategy × 9-budget × 20-seed sweep affordable. The assumption it rests on
 (that the indexed frame and the fetched frame are the same image) is checked in
-`scripts/verify.py`, and it was false until commit `1a9311d`; see below.
+`scripts/verify.py`, and it was false for the first day of the project; see
+below.
 
 ## Selection strategies
 

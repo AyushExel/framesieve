@@ -68,9 +68,9 @@ filtering on the fly, in one line.
 
 ## Why the index is small
 
-An hour of video at 1 fps is 3,600 frames × 768 dimensions in float16 — about
-5 MB. It is stored as float16 because that halves the file and costs nothing
-measurable, and handed back as float32 so arithmetic on it behaves.
+An hour of video at 1 fps is 3,600 frames × 768 dimensions in float32, about
+11 MB, stored as a Lance dataset. It is kept at the precision the ranking runs
+at, so nothing has to be cast at query time.
 
 That also means an index is **portable and cheap to read**: no GPU, no model, no
 torch. You can build indexes on a GPU box and query them anywhere.
@@ -129,8 +129,10 @@ That result turned out not to be about video at all, and is its own piece:
   happened overall*. On whole-video questions ("how many times does X occur")
   every selection strategy landed inside every other's confidence interval, and
   the frame budget dominated.
-- **Not an audio system.** Frames only.
-- **Not OCR.** A 224-pixel global embedding cannot read a sign.
+- **The frame encoder cannot hear.** `--audio` covers that: it transcribes
+  with Whisper and indexes what was said as a separate signal.
+- **A 224-pixel embedding cannot read a sign.** `--ocr` covers that: it reads
+  the text on screen and indexes it, also as its own signal.
 - **Not exhaustive.** At 32 model calls on a 4.5-hour video it finds 23% of
   labelled events, against uniform sampling's 0.9%. It is 26× better than the
   default, not complete. Recall against compute is a curve, and there is no point

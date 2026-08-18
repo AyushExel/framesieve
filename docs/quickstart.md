@@ -13,10 +13,10 @@ pip install framesieve
 
 **No GPU required.** Everything picks CUDA if there is one, Apple silicon if
 there is one, and CPU otherwise — no flags. On CPU, indexing an hour of video
-takes a minute or two instead of fifteen seconds; search is the same speed
-either way, because it is a matrix multiply against an index that already
-exists. The one part that really wants a GPU is `--confirm`, which runs a 7B
-vision-language model.
+takes a minute or two instead of fifteen seconds; a search is ~110 ms instead
+of ~6 ms, because the cost is encoding the query text, not the ranking. The one
+part that really wants a GPU is `--confirm`, which runs a 7B vision-language
+model.
 
 You also need `ffmpeg` on your `PATH`, with h.264 support:
 
@@ -35,21 +35,22 @@ pip install "framesieve[vlm]"
 
 ```bash
 framesieve index  holiday.mp4
-framesieve search holiday.mp4 "a dark tunnel" --no-refine
+framesieve search holiday.mp4 "a dark tunnel"
 ```
 
 `index` writes a sidecar next to the video — about **11 MB and 15 seconds per hour
 of footage** — and you run it once. Everything after that reads the sidecar.
 
 `search` ranks every indexed frame against your text and returns the best
-candidates. `--no-refine` keeps it to retrieval only, which is roughly a
-millisecond and touches no pixels.
+candidates. That is retrieval only and touches no pixels: warm, on a GPU, about
+6 ms, most of it encoding the query text; the ranking itself is about a
+millisecond.
 
-Drop `--no-refine` and a vision-language model actually looks at each candidate
+Add `--confirm` and a vision-language model actually looks at each candidate
 and says yes or no:
 
 ```bash
-framesieve search holiday.mp4 "a dark tunnel" -k 16
+framesieve search holiday.mp4 "a dark tunnel" -k 16 --confirm
 ```
 
 ```
@@ -176,7 +177,8 @@ for hit in lib.search("a red car", k=20):
     print(hit.video, hit.timecode, hit.score)
 ```
 
-You do not re-encode anything to switch. See
+You do not re-encode anything to switch, and speech/OCR sidecars matching the
+glob are skipped automatically. See
 **[Scaling to a library](scaling.md)** for where the threshold is, what it costs,
 and which index type to use — the usual `IVF_PQ` advice does not work here.
 

@@ -67,14 +67,16 @@ Three places, and they are real:
 
 ## What framesieve does
 
-Default: **JPEG blob store** (`./framesieve index VIDEO --store`), because the
-cascade's access pattern is scattered single frames and that is what it is best
-at. It costs 2711 MB per hour of video, which is **0.30× the source file** — one
-JPEG per second is smaller than 25 H.264 frames per second, so this is cheaper
-than it sounds.
+With `--store` (opt-in, needs `framesieve[store]` for pillow): a **JPEG blob
+store**, because the cascade's access pattern is scattered single frames and
+that is what it is best at. It costs 2711 MB per hour of video, which is
+**0.30× the source file** — one JPEG per second is smaller than 25 H.264 frames
+per second, so this is cheaper than it sounds.
 
-Fallback with no `pylance` installed: parallel ffmpeg seeks. Correct, 13× slower,
-no extra disk.
+Without a store, fetching falls back to parallel ffmpeg seeks against the
+source video: correct, 13× slower, no extra disk. That is the default, since
+search never touches pixels and the store only pays for itself when you
+confirm a lot.
 
 `bench/videoblob.py` implements the video byte-range store too, verified
 frame-exact against a plain seek (mean abs diff **0.000**, 8/8 identical). It is

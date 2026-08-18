@@ -4,9 +4,9 @@
 matrix multiply. That is the right shape until it is not. At 1 fps a video-hour
 is 3,600 vectors, so:
 
-        205 h    739,739 vectors    1.1 GB    fine
-      1,000 h    3.6M vectors       5.5 GB    uncomfortable
-     10,000 h    36M vectors         55 GB    no
+        100 h    360,000 vectors    1.1 GB    fine
+        500 h    1.8M vectors       5.5 GB    uncomfortable
+     10,000 h    36M vectors        110 GB    no
 
 A `Collection` is the same idea backed by LanceDB instead of a numpy array. The
 vectors live on disk and the search is an approximate-nearest-neighbour lookup

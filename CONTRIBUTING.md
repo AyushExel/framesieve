@@ -38,12 +38,16 @@ those, guard it the same way.
 ## Measurements
 
 Numbers in the README and in `docs/` are generated, not typed. If you change
-something that moves one, regenerate the artefact under `runs/` and rebuild:
+something that moves one, regenerate the artefact under `runs/`:
 
 ```bash
 .venv/bin/python scripts/verify.py       # 13 checks on env, decode and determinism
-.venv/bin/python scripts/build_post.py   # rebuilds docs/*.html from runs/
 ```
+
+(`scripts/build_post.py` is author tooling for the write-ups: it rebuilds
+whichever `docs/*.template.html` are present from `runs/` and skips the ones
+that are not. The templates live with the blog, not in this repo, so from a
+clone it has little to do.)
 
 `scripts/verify.py` is worth running before you send a change. It checks the
 things that, if wrong, corrupt a result silently rather than crashing —

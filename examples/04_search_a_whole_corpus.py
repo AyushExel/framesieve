@@ -4,14 +4,14 @@
     python examples/04_search_a_whole_corpus.py ./footage "a red car"
 
 One video fits in memory: an hour at 1 fps is 3,600 vectors. A corpus does not
--- 10,000 hours is 36 million vectors and 55 GB -- so past a few hundred hours
+-- 10,000 hours is 36 million vectors and 110 GB -- so past a few hundred hours
 the vectors belong on disk with a vector index over them.
 
 `Collection` is that: LanceDB underneath, one row per frame, and a search that
 returns which video as well as when.
 
 Indexing is the expensive half and it is per-video, so it parallelises: index
-each video wherever you like, then merge the sidecars here with add_index().
+each video wherever you like, then merge the sidecars here with add_indexes().
 """
 import glob
 import os
@@ -27,14 +27,10 @@ uri = os.path.join(folder, "_framesieve.lancedb")
 lib = fs.Collection(uri)
 
 if len(lib) == 0:
-    # existing indexes first, since merging them skips re-encoding entirely
-    built = sorted(glob.glob(os.path.join(folder, "*.lance")))
-    built = [p for p in built if not p.endswith((".speech.lance", ".text.lance"))]
-    if built:
-        print(f"merging {len(built)} existing indexes")
-        for p in built:
-            lib.add_index(p)
-    else:
+    # existing indexes first, since merging them skips re-encoding entirely;
+    # speech/OCR sidecars and already-added videos are skipped automatically
+    merged = lib.add_indexes(os.path.join(folder, "*.lance"))
+    if not merged:
         vids = sorted(p for ext in ("mp4", "mkv", "mov", "webm")
                       for p in glob.glob(os.path.join(folder, f"*.{ext}")))
         if not vids:

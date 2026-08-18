@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Find a moment by what was shown, what was said, or what was written on screen.
 
-    python examples/05_search_speech_and_frames.py talk.mp4 "the part about pricing"
+    python examples/05_search_speech_text_and_frames.py talk.mp4 "the part about pricing"
 
 audio=True transcribes with Whisper; ocr=True reads the text in the frames. Both
 index timed spans beside the frame embeddings.

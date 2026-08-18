@@ -1,7 +1,7 @@
 # API reference
 
 Everything here is `framesieve.api`, re-exported at the top level. That module is
-the stable surface. `framesieve.index`, `.search`, `.encoders`, `.vlm` and
+the stable surface. `framesieve.indexing`, `.search`, `.encoders`, `.vlm` and
 `.frames` are the lower level, are useful, and may change between minor versions.
 
 ```python
@@ -24,6 +24,11 @@ video = fs.open("holiday.mp4")
 `rebuild=True` forces a fresh index even if a sidecar is there. Extra keyword
 arguments are passed to `fs.index` when it has to build.
 
+When the index already exists, `audio=True` and `ocr=True` still work: the
+missing pass is run and its sidecar written, without re-embedding any frames.
+Any other build option on an existing index raises a warning naming it (pass
+`rebuild=True` to apply it), and a misspelled keyword raises `TypeError`.
+
 ### `fs.index(video, *, encoder=..., fps=1.0, save=True, ...)`
 
 Decode at `fps`, embed every frame, write a sidecar. Costs roughly **15 seconds
@@ -34,8 +39,9 @@ and 11 MB per hour** of video on one GPU. Needs torch.
 | `encoder` | `"siglip2-base-224"` | the per-frame encoder; see `framesieve.encoders.SIGLIP_MODELS` |
 | `fps` | `1.0` | frames sampled per second of video |
 | `save` | `True` | write the sidecar; `False` keeps it in memory only |
+| `out` | `None` | write the sidecar here instead of next to the video; an index at a custom path is loaded by that path, since `open(video)` only looks next to the video |
 | `size` | `256` | decode resolution before encoding |
-| `segment_tau` | `0.0` | cosine similarity below which a new segment starts; collapses static footage |
+| `segment_tau` | `0.90` | the redundancy collapse: frames stay in one segment while their embedding resembles its centroid, which collapses static footage; `0` disables it |
 | `pixel_gate_tau` | `0.0` | skip encoding frames within this mean grey-level difference of the last kept one |
 | `start`, `duration` | `0.0` | index only part of the video, in seconds |
 | `gpu_decode` | `False` | decode with NVDEC: fewer CPU cores, slower wall clock on most hosts |
@@ -44,7 +50,7 @@ and 11 MB per hour** of video on one GPU. Needs torch.
 | `ocr` | `False` | read the on-screen text and index it, so `source="text"` works. ~1.5 min per video-hour. Needs `framesieve[ocr]` |
 | `ocr_every` | `"segment"` | `"segment"` reads one frame per shot, `"frame"` reads all of them (~4× slower) |
 | `language` | auto | force a transcription language, e.g. `"en"` |
-| `store` | `False` | also keep every frame as a JPEG beside its embedding: 15× faster frame fetch and no need for the video afterwards, at 55× the disk. Needs `pylance` |
+| `store` | `False` | also keep every frame as a JPEG beside its embedding: 15× faster frame fetch and no need for the video afterwards, at ~250× the disk (2711 MB per hour against 11). Needs `framesieve[store]` |
 | `seed` | `0` | |
 
 ### `fs.load(path_or_video, *, video=None, encoder=..., fps=1.0)`
@@ -53,7 +59,7 @@ Load an existing index, given either the sidecar path or the video it came from.
 **Needs no GPU and no model.** Pass `video=` if the source file has moved and you
 still want `confirm=True` or `frames()` to work.
 
-### `fs.index_path_for(video, encoder=..., fps=1.0, store=False) -> str`
+### `fs.index_path_for(video, encoder=..., fps=1.0) -> str`
 
 Where the sidecar for that combination lives. The encoder and rate are in the
 filename because an index built with a different encoder is not interchangeable,
@@ -89,7 +95,8 @@ Find the `k` moments most likely to match `query`.
   (what is written on screen), or a list of them. `None` (default) uses
   everything the index has; `.sources` says what that is
 - **`merge_gap_s`** — a frame hit and a transcript hit this close together are
-  the same moment, returned once as `source="both"`
+  the same moment, returned once with the sources joined by `+`
+  (`source="speech+visual"`)
 - **`strategy`** — how visual candidates are spread over the video. See below.
 
 Results are ordered by the model's verdict when there is one, by retrieval
@@ -126,11 +133,14 @@ machine holds indexes and ranks against them.
 
 Fetch the actual pixels at those timestamps, as `uint8` HWC arrays. Accepts a
 `SearchResults` directly, so `video.frames(hits[:4])` works. Needs the source
-video on disk.
+video on disk, unless the index carries a frame store (`store=True`).
 
 ### `.save(path=None) -> str`
 
-Write the sidecar. Returns where it went.
+Write the sidecar. Returns where it went. A store-backed index refuses: the
+store is already its saved form, and overwriting it with the embeddings-only
+table would destroy the stored frames. Pass a different path to export the
+embeddings alone.
 
 ---
 
@@ -201,11 +211,17 @@ lib = fs.Collection("library.lancedb")      # created if it does not exist
 ### `.add(video, **kwargs)` / `.add_index(path)` / `.add_indexes(glob)`
 
 `add` indexes a video and appends it, and needs torch. `add_index` appends a
-`.npz` sidecar that already exists and needs nothing — which is how a corpus is
+`.lance` sidecar that already exists and needs nothing — which is how a corpus is
 loaded, since indexing is the expensive half and it is per-video.
 
+`add_indexes` takes a glob. Speech and OCR sidecars match `*.lance` too, so it
+skips them with a note, and it skips videos already in the collection, so a bulk
+load can be re-run. A sidecar built with a different encoder raises rather than
+silently corrupting the ranking; a direct `add_index` of a video already in the
+collection raises `DuplicateVideo`.
+
 ```python
-lib.add_indexes("footage/*.npz")     # merge what you already built
+lib.add_indexes("footage/*.lance")   # merge what you already built
 lib.add("new_camera.mp4")            # or index straight in
 ```
 

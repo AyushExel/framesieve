@@ -1,13 +1,13 @@
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="figures/banner.dark.png">
-  <img alt="framesieve: find things in video by describing them. Four searches of one 4.5-hour video: a station platform, a stone viaduct, the sea, and a red signal light, each returning the correct frame with a timestamp and the vision-language model's confirmation score." src="figures/banner.light.png">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/AyushExel/framesieve/main/figures/banner.dark.png">
+  <img alt="framesieve: find things in video by describing them. Four searches of one 4.5-hour video: a station platform, a stone viaduct, the sea, and a red signal light, each returning the correct frame with a timestamp and the vision-language model's confirmation score." src="https://raw.githubusercontent.com/AyushExel/framesieve/main/figures/banner.light.png">
 </picture>
 
 <p align="center">
   <a href="https://pypi.org/project/framesieve/"><img alt="PyPI" src="https://img.shields.io/pypi/v/framesieve?color=%2300989a&label=pypi"></a>
   <a href="https://pypi.org/project/framesieve/"><img alt="Python" src="https://img.shields.io/pypi/pyversions/framesieve?color=%2300989a"></a>
   <a href="https://github.com/AyushExel/framesieve/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/AyushExel/framesieve/actions/workflows/ci.yml/badge.svg"></a>
-  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-blue"></a>
+  <a href="https://github.com/AyushExel/framesieve/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-blue"></a>
 </p>
 
 ---
@@ -29,13 +29,16 @@ framesieve index  my_video.mp4
 framesieve search my_video.mp4 "a red car pulling in"
 ```
 
+Add `--confirm` and a vision-language model verifies each hit (first use
+downloads a ~16 GB model; needs `framesieve[vlm]`).
+
 **No GPU required.** Indexing an hour of video takes a minute or two on a
 laptop CPU instead of fifteen seconds on a GPU, and a search is ~110 ms instead
 of ~6 ms, which is still interactive.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="figures/at_a_glance.dark.png">
-  <img alt="15 seconds to index an hour of video and 11 MB, measured over 205 hours. 6 milliseconds to search all 4.5 hours on a GPU, about 110 milliseconds on CPU. 26 times what sampling every Nth frame finds, at the same 32 model calls." src="figures/at_a_glance.light.png">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/AyushExel/framesieve/main/figures/at_a_glance.dark.png">
+  <img alt="15 seconds to index an hour of video and 11 MB, measured over 205 hours. 6 milliseconds to search all 4.5 hours on a GPU, about 110 milliseconds on CPU. 26 times what sampling every Nth frame finds, at the same 32 model calls." src="https://raw.githubusercontent.com/AyushExel/framesieve/main/figures/at_a_glance.light.png">
 </picture>
 
 ## Try it
@@ -47,7 +50,7 @@ indexing cabride.mp4
   wrote cabride.framesieve-siglip2-base-224-1fps.lance  (50.0 MB, 11.1 MB per hour)
   2.7 min for 4.51 h of video = 105x realtime
 
-$ framesieve search cabride.mp4 "a dark tunnel" -k 16
+$ framesieve search cabride.mp4 "a dark tunnel" -k 16 --confirm
 
 query    : 'a dark tunnel'
 video    : cabride.mp4
@@ -225,7 +228,7 @@ best  = video.search("a red car", k=32, confirm=True)    # with the VLM
 ```
 
 Full guide, including where the threshold is and which index type to use:
-**[Scaling to a library](docs/scaling.md)**.
+**[Scaling to a library](https://github.com/AyushExel/framesieve/blob/main/docs/scaling.md)**.
 
 ### Running on CPU
 
@@ -240,15 +243,15 @@ parameters, small enough that CPU is a real option rather than a degraded mode:
 
 Ranking is the same either way, a matrix multiply against an index that already
 exists, 0.03 ms for a 4.5-hour video. The difference is encoding your query
-text, which is a model forward pass: about 1 ms on a GPU and 100 ms on a CPU.
-Still interactive, just not instant. The one part that really wants a GPU is
-`confirm=True`, which runs a 7B vision-language model.
+text, which is a model forward pass: most of the ~6 ms on a GPU and nearly all
+of the ~110 ms on a CPU. Still interactive, just not instant. The one part that
+really wants a GPU is `confirm=True`, which runs a 7B vision-language model.
 
-**[Quickstart](docs/quickstart.md)** ·
-**[API reference](docs/api.md)** ·
-**[How it works](docs/how-it-works.md)** ·
-**[Scaling to a library](docs/scaling.md)** ·
-**[Examples](examples/)**
+**[Quickstart](https://github.com/AyushExel/framesieve/blob/main/docs/quickstart.md)** ·
+**[API reference](https://github.com/AyushExel/framesieve/blob/main/docs/api.md)** ·
+**[How it works](https://github.com/AyushExel/framesieve/blob/main/docs/how-it-works.md)** ·
+**[Scaling to a library](https://github.com/AyushExel/framesieve/blob/main/docs/scaling.md)** ·
+**[Examples](https://github.com/AyushExel/framesieve/tree/main/examples/)**
 
 ## What it's for
 
@@ -323,8 +326,8 @@ same cost. Searching that video for `"a dark tunnel"` with a budget of 32 model
 calls:
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="figures/coverage.dark.png">
-  <img alt="Timeline of a 4.5-hour video. Grey ticks mark 60 tunnels. Sampling every Nth frame spent 32 model calls evenly and hit 1 of them; framesieve spent the same 32 calls and hit 25." src="figures/coverage.light.png">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/AyushExel/framesieve/main/figures/coverage.dark.png">
+  <img alt="Timeline of a 4.5-hour video. Grey ticks mark 60 tunnels. Sampling every Nth frame spent 32 model calls evenly and hit 1 of them; framesieve spent the same 32 calls and hit 25." src="https://raw.githubusercontent.com/AyushExel/framesieve/main/figures/coverage.light.png">
 </picture>
 
 Both spent the same 32 calls. Over 200 random offsets, sampling every Nth frame
@@ -361,6 +364,8 @@ Also needs `ffmpeg` on your `PATH`.
 | `framesieve[audio]` | transcribe with Whisper, so `source="speech"` works |
 | `framesieve[ocr]` | read the text on screen, so `source="text"` works |
 | `framesieve[vlm]` | `confirm=True`: fetch frames and check them with a vision-language model |
+| `framesieve[store]` | `--store`: keep the sampled frames as JPEGs beside the index (pillow) |
+| `framesieve[collection]` | `Collection`: search across many videos (lancedb) |
 | `framesieve[dev]` | pytest, ruff |
 
 ### Keeping the frames too
@@ -375,7 +380,7 @@ Also needs `ffmpeg` on your `PATH`.
 | fetching a frame | 14.5 ms | **0.9 ms** |
 | needs the video file afterwards | yes | **no** |
 
-It is off by default because the disk is 55× and most of it buys nothing: search
+It is off by default because the disk is about 250× and most of it buys nothing: search
 never touches pixels, and even with `confirm` the model itself dominates: a
 32-call search goes from about 1.4 s to 1.0 s, not 15× faster.
 
@@ -392,7 +397,7 @@ Search picks up the store automatically if one is there.
 ## Contributing
 
 Bug reports, benchmarks on your own footage, and new encoder or VLM backends are
-all welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). Tests that need a GPU, a
+all welcome; see [CONTRIBUTING.md](https://github.com/AyushExel/framesieve/blob/main/CONTRIBUTING.md). Tests that need a GPU, a
 model download or a video file skip themselves, so CI stays green on CPU and a
 red build means a real bug.
 
@@ -403,5 +408,5 @@ pytest -q && ruff check .
 
 ## License
 
-[Apache-2.0](LICENSE). The test video is from the Internet Archive; the
+[Apache-2.0](https://github.com/AyushExel/framesieve/blob/main/LICENSE). The test video is from the Internet Archive; the
 benchmarks are the property of their authors and carry their own terms.
