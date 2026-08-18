@@ -69,6 +69,11 @@ def latency_note() -> str:
 
 
 def build(src_rel: str, out_rel: str) -> None:
+    # templates are deliberately not committed (see .gitignore); build the
+    # pages whose source is present instead of dying on the first absent one
+    if not os.path.exists(os.path.join(ROOT, src_rel)):
+        print(f"skipping {out_rel}: no {src_rel} in this checkout")
+        return
     html = open(os.path.join(ROOT, src_rel)).read()
     missing: list[str] = []
 
