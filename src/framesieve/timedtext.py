@@ -73,7 +73,11 @@ class TimedTextIndex:
         import pyarrow as pa
 
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-        d = int(self.emb.shape[1]) if self.emb.ndim == 2 and len(self.emb) else 0
+        # pyarrow rejects a fixed list of size 0, and an empty index is a real
+        # outcome (a silent track, footage with no legible text) that arrives at
+        # the END of an expensive pass -- it must save, not crash
+        d = (int(self.emb.shape[1])
+             if self.emb.ndim == 2 and self.emb.shape[1] > 0 else 1)
         table = pa.table({
             "start": pa.array([s.start for s in self.segments], pa.float64()),
             "end": pa.array([s.end for s in self.segments], pa.float64()),

@@ -23,7 +23,7 @@ import torch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 from framesieve.encoders import CLIP_MODELS, ClipEncoder, SiglipEncoder  # noqa: E402
-from framesieve.index import build_index  # noqa: E402
+from framesieve.indexing import build_index  # noqa: E402
 
 
 def main() -> None:

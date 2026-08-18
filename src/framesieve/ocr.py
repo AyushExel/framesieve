@@ -57,20 +57,25 @@ def _engine():
     return RapidOCR()
 
 
-def read_frames(frames, *, min_conf: float = 0.5, min_chars: int = 3,
-                verbose: bool = False) -> list[str]:
-    """One line of text per frame, empty where nothing legible was found.
+def _read_one(ocr, frame: np.ndarray, min_conf: float, min_chars: int) -> str:
+    """One frame's legible text, or the empty string.
 
     Frames are uint8 RGB, as everything else in framesieve produces them; the
     engine wants BGR, which is the [::-1] on the last axis.
     """
+    res, _ = ocr(np.ascontiguousarray(frame[:, :, ::-1]))
+    parts = [t for _, t, conf in (res or [])
+             if conf >= min_conf and len(t.strip()) >= min_chars]
+    return " ".join(p.strip() for p in parts)
+
+
+def read_frames(frames, *, min_conf: float = 0.5, min_chars: int = 3,
+                verbose: bool = False) -> list[str]:
+    """One line of text per frame, empty where nothing legible was found."""
     ocr = _engine()
     out: list[str] = []
     for i, f in enumerate(frames):
-        res, _ = ocr(np.ascontiguousarray(f[:, :, ::-1]))
-        parts = [t for _, t, conf in (res or [])
-                 if conf >= min_conf and len(t.strip()) >= min_chars]
-        out.append(" ".join(p.strip() for p in parts))
+        out.append(_read_one(ocr, f, min_conf, min_chars))
         if verbose and (i + 1) % 200 == 0:
             print(f"    {i + 1} frames read", flush=True)
     return out
@@ -97,7 +102,15 @@ def build_text_index(video: str, *, index=None, fps: float = 1.0,
         raise ValueError(f"every must be 'segment' or 'frame', got {every!r}")
 
     info = probe_source(video)
-    stream = FrameStream(video, target_fps=fps, size=size, batch=64)
+    # `size` is the decode HEIGHT. Handing an int straight to FrameStream would
+    # decode squares -- 1920x1080 squashed to 640x640 -- which distorts exactly
+    # the text this pass exists to read. Preserve the aspect ratio (ffmpeg wants
+    # even dimensions).
+    if info.height > 0 and info.width > 0:
+        w = max(2, 2 * round(info.width * size / info.height / 2))
+    else:  # pragma: no cover - a broken probe; squares beat crashing
+        w = size
+    stream = FrameStream(video, target_fps=fps, size=(w, size), batch=64)
 
     # which sampled frames to actually read. With a segmentation, one per
     # segment: consecutive frames of one shot carry the same text, and reading
@@ -109,20 +122,23 @@ def build_text_index(video: str, *, index=None, fps: float = 1.0,
         if verbose:
             print(f"  {len(wanted)} segments out of {len(index.ts)} frames")
 
+    # read as the frames stream past, keeping the text and dropping the pixels:
+    # buffering every selected frame first held gigabytes for a long video
+    ocr = _engine()
     times: list[float] = []
-    keep: list[np.ndarray] = []
-    n = 0
+    texts: list[str] = []
+    n = n_read = 0
     for ts, batch in stream:
         for t, fr in zip(ts, batch):
             if wanted is None or n in wanted:
                 times.append(float(t))
-                keep.append(fr)
+                texts.append(_read_one(ocr, fr, min_conf, min_chars))
+                n_read += 1
+                if verbose and n_read % 200 == 0:
+                    print(f"    {n_read} frames read", flush=True)
             n += 1
-
     if verbose:
-        print(f"  reading {len(keep)} frames at {size}px")
-    texts = read_frames(keep, min_conf=min_conf, min_chars=min_chars,
-                        verbose=verbose)
+        print(f"  read {n_read} frames at {size}px")
 
     # a span runs until the next frame that was read, so a shot's text covers
     # the shot rather than a single instant
@@ -139,4 +155,4 @@ def build_text_index(video: str, *, index=None, fps: float = 1.0,
     return embed_segments(segs, "text", text_encoder=text_encoder,
                           device=device,
                           meta={"video": video, "ocr": DEFAULT_OCR,
-                                "every": every, "read": len(keep)})
+                                "every": every, "read": n_read})

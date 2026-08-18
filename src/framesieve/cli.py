@@ -54,14 +54,14 @@ def cmd_index(args) -> int:
         _err(f"no such file: {args.video}")
         return 2
 
+    import importlib.util
+
     use_store = bool(args.store)
-    if use_store:
-        try:
-            import lance  # noqa: F401
-        except ImportError:
-            _err("warning: --store needs `pip install pylance`; "
-                 "building a plain index instead")
-            use_store = False
+    if use_store and any(importlib.util.find_spec(m) is None
+                         for m in ("lance", "PIL")):
+        _err("warning: --store needs `pip install \"framesieve[store]\"`; "
+             "building a plain index instead")
+        use_store = False
 
     out = args.out or api.index_path_for(args.video, args.encoder, args.fps)
     if os.path.exists(out) and not args.force:
@@ -77,7 +77,8 @@ def cmd_index(args) -> int:
                   batch=args.batch, segment_tau=args.segment_tau,
                   pixel_gate_tau=args.pixel_gate_tau,
                   gpu_decode=args.gpu_decode, seed=args.seed,
-                  jpeg_quality=args.jpeg_quality, verbose=not args.json)
+                  jpeg_quality=args.jpeg_quality, out=args.out,
+                  verbose=not args.json)
     dt = time.perf_counter() - t0
     hours = v.duration / 3600
     size_b = (sum(os.path.getsize(os.path.join(r, f))
@@ -104,7 +105,17 @@ def cmd_index(args) -> int:
 
 
 def cmd_search(args) -> int:
+    import importlib.util
+
     from . import api
+
+    if args.confirm and importlib.util.find_spec("PIL") is None:
+        # checked before the model download: --confirm pulls a 7B VLM, and
+        # discovering the missing dependency after 16 GB is the wrong order
+        _err("--confirm fetches frames and shows them to a vision-language "
+             "model, which needs pillow:\n"
+             "  pip install \"framesieve[vlm]\"")
+        return 2
 
     try:
         opts = dict(encoder=args.encoder, fps=args.fps, vlm=args.vlm,
@@ -117,7 +128,7 @@ def cmd_search(args) -> int:
 
     try:
         hits = video.search(args.query, k=args.budget,
-                            confirm=not args.no_refine, source=args.source,
+                            confirm=args.confirm, source=args.source,
                             question=args.question, strategy=args.strategy,
                             tokens_per_frame=args.tokens_per_frame,
                             seed=args.seed)
@@ -157,14 +168,18 @@ def _print_hits(video, hits, args) -> None:
             shown = kept
             print(f"\n{len(kept)} hit(s) above threshold {args.threshold}:")
         else:
-            best = hits[0].vlm_score if len(hits) else float("nan")
+            # non-visual hits carry no VLM score, and one of them can be first
+            scored = [h.vlm_score for h in hits if h.vlm_score is not None]
+            best = max(scored) if scored else float("nan")
             print(f"\nno frame scored above the threshold of {args.threshold}. "
-                  f"The best of the {len(hits)} frames the model was shown "
+                  f"The best of the {len(scored)} frames the model was shown "
                   f"scored {best:.2f}.")
             print("  The scale is a log-odds margin: 0 is a coin flip, +2 is "
                   "about 7:1 for yes.")
-            print(f"  Too strict? retry with --threshold {best-0.5:.1f}. "
-                  f"Never a candidate? retry with --budget {max(8, hits.budget*4)}.")
+            if scored:
+                print(f"  Too strict? retry with --threshold {best-0.5:.1f}. "
+                      f"Never a candidate? retry with --budget "
+                      f"{max(8, hits.budget*4)}.")
             print("\n  what it did look at:")
     else:
         print(f"\ntop {min(args.top, len(hits))} candidates "
@@ -258,7 +273,11 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("index", parents=[common],
                        help="build the index (once per video)")
     p.add_argument("video")
-    p.add_argument("--out", default=None, help="where to write the index")
+    p.add_argument("--out", default=None,
+                   help="where to write the index (default: next to the video; "
+                        "an index at a custom path is searched by passing that "
+                        "path, since bare `framesieve search VIDEO` only looks "
+                        "next to the video)")
     p.add_argument("--size", type=int, default=256,
                    help="decode at this resolution before encoding")
     p.add_argument("--batch", type=int, default=256)
@@ -275,8 +294,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="also keep every sampled frame as a JPEG blob in a "
                         "Lance dataset: ~0.3x the video in disk, and makes "
                         "--confirm's frame fetch ~15x faster, and lets the "
-                        "index work without the video. Costs ~55x the disk "
-                        "(needs pylance)")
+                        "index work without the video. Costs ~250x the disk "
+                        "of a plain index (needs framesieve[store])")
     p.add_argument("--jpeg-quality", type=int, default=90,
                    help="quality for --store (default: %(default)s)")
     p.add_argument("--audio", action="store_true",
@@ -286,7 +305,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--ocr", action="store_true",
                    help="also read the text on screen and index it, so "
                         "`search --source text` can reach a caption or a slide "
-                        "title. ~7 min per hour of video (needs framesieve[ocr])")
+                        "title. ~1.5 min per hour of video with the default "
+                        "--ocr-every segment (needs framesieve[ocr])")
     p.add_argument("--ocr-every", default="segment", choices=["segment", "frame"],
                    help="read one frame per shot (default) or every frame; "
                         "'frame' is ~4x slower and only helps when the text "
@@ -304,12 +324,16 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--budget", "-k", type=int, default=32,
                    help="candidate frames to consider, and model calls to spend "
                         "with --confirm (default: %(default)s)")
-    s.add_argument("--confirm", dest="no_refine", action="store_false",
-                   help="ask a vision-language model to check each candidate "
-                        "(default; ~30 ms per frame)")
-    s.add_argument("--no-refine", dest="no_refine", action="store_true",
-                   help="retrieval only: no VLM, no frame fetch, ~1 ms")
-    s.set_defaults(no_refine=False)
+    # retrieval-only by default, exactly like the Python API's confirm=False:
+    # a bare `framesieve search` should never download a 7B model unasked
+    s.add_argument("--confirm", dest="confirm", action="store_true",
+                   help="ask a vision-language model to check each candidate: "
+                        "~30 ms per frame on a GPU, ~16 GB of weights on first "
+                        "use (needs framesieve[vlm])")
+    s.add_argument("--no-refine", dest="confirm", action="store_false",
+                   help="retrieval only: no VLM, no frame fetch, milliseconds "
+                        "(this is the default)")
+    s.set_defaults(confirm=False)
     s.add_argument("--question", default=None,
                    help="the yes/no question put to the model "
                         "(default: 'Does this frame show: QUERY?')")

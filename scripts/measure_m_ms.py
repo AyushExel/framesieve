@@ -37,7 +37,7 @@ from framesieve.benchmarks.momentseeker import (  # noqa: E402
     gt_chunk_mask,
     load_queries,
 )
-from framesieve.index import FrameIndex  # noqa: E402
+from framesieve.indexing import FrameIndex  # noqa: E402
 
 KS = (1, 2, 3, 4, 5, 6, 8, 10)
 

@@ -43,7 +43,7 @@ from framesieve.evaluate import (  # noqa: E402
     evaluate_selection,
     events_from_scores,
 )
-from framesieve.index import FrameIndex, build_index  # noqa: E402
+from framesieve.indexing import FrameIndex, build_index  # noqa: E402
 from framesieve.search import select_candidates  # noqa: E402
 
 

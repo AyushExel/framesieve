@@ -35,7 +35,7 @@ from framesieve.evaluate import (  # noqa: E402
     evaluate_selection,
     events_from_scores,
 )
-from framesieve.index import FrameIndex  # noqa: E402
+from framesieve.indexing import FrameIndex  # noqa: E402
 from framesieve.search import select_candidates  # noqa: E402
 
 # measured on this machine, bench/vlm_bench.py, batch 16 @ native visual tokens

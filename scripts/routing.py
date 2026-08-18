@@ -50,7 +50,7 @@ from framesieve.benchmarks.momentseeker import (  # noqa: E402
     load_queries,
     recall_at_k,
 )
-from framesieve.index import FrameIndex  # noqa: E402
+from framesieve.indexing import FrameIndex  # noqa: E402
 
 TOPK = 4
 

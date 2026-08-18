@@ -40,6 +40,11 @@ if TYPE_CHECKING:                      # pragma: no cover
 # want to query an index someone else built.
 
 
+# bumped when the sidecar layout changes. Written beside the stats so a future
+# version can tell an old index from a new one instead of crashing on a field.
+INDEX_FORMAT = 1
+
+
 @dataclass
 class IndexStats:
     video: str
@@ -58,6 +63,23 @@ class IndexStats:
     realtime_factor: float
     gpu: str = ""
     seed: int = 0
+
+    @classmethod
+    def from_dict(cls, d: dict) -> IndexStats:
+        """Build stats from a sidecar's json, tolerating fields we do not know.
+
+        A newer framesieve may add fields; ignoring them (with a note) beats a
+        TypeError from a version skew the user cannot see.
+        """
+        import dataclasses
+        known = {f.name for f in dataclasses.fields(cls)}
+        extra = sorted(set(d) - known)
+        if extra:
+            import sys
+            print(f"note: index carries fields this framesieve does not know "
+                  f"({', '.join(extra)}); it was written by a newer version",
+                  file=sys.stderr)
+        return cls(**{k: v for k, v in d.items() if k in known})
 
     def pretty(self) -> str:
         skip = 100.0 * (1 - self.n_encoded / max(1, self.n_frames))
@@ -157,7 +179,7 @@ class FrameIndex:
         })
         lance.write_dataset(table, path, mode="overwrite")
         with open(os.path.join(path, "framesieve.json"), "w") as f:
-            json.dump({"stats": asdict(self.stats)}, f)
+            json.dump({"format": INDEX_FORMAT, "stats": asdict(self.stats)}, f)
 
     @classmethod
     def from_npz(cls, path: str) -> FrameIndex:
@@ -182,11 +204,20 @@ class FrameIndex:
         """
         import lance
 
+        meta_path = os.path.join(path, "framesieve.json")
+        if not os.path.exists(meta_path):
+            # a Lance directory without our metadata is either a write that was
+            # interrupted between the dataset and the json, or somebody else's
+            # dataset entirely. Either way it will never load.
+            raise FileNotFoundError(
+                f"{path} is a Lance dataset but has no framesieve.json, so it "
+                f"is not a complete framesieve index (an interrupted build "
+                f"leaves this state). Delete the directory and rebuild.")
         ds = lance.dataset(path)
         t = ds.to_table(columns=["ts", "seg_id", "emb"])
         emb = np.stack(t.column("emb").to_numpy(zero_copy_only=False))
-        with open(os.path.join(path, "framesieve.json")) as f:
-            stats = IndexStats(**json.load(f)["stats"])
+        with open(meta_path) as f:
+            stats = IndexStats.from_dict(json.load(f)["stats"])
         return cls(t.column("ts").to_numpy().astype(np.float32), emb,
                    t.column("seg_id").to_numpy().astype(np.int32), stats)
 
@@ -293,6 +324,50 @@ def build_index(video: str, encoder: SiglipEncoder, *, target_fps: float = 1.0,
     if verbose:
         print(stats.pretty())
     return idx
+
+
+class StreamingSegmenter:
+    """`_segment`, one batch at a time.
+
+    Feeding batches in order yields exactly the ids `_segment` assigns to their
+    concatenation (pinned by a test), which is what lets the frame store write
+    each batch to disk as it is produced instead of holding a whole video's
+    JPEGs in memory waiting for the segmentation.
+    """
+
+    def __init__(self, tau: float):
+        self.tau = tau
+        self._centroid: np.ndarray | None = None
+        self._cur = -1
+        self._n = 0
+
+    @property
+    def n_segments(self) -> int:
+        return self._cur + 1
+
+    def feed(self, emb: np.ndarray) -> np.ndarray:
+        emb = np.asarray(emb, dtype=np.float32)
+        n = len(emb)
+        out = np.empty(n, np.int32)
+        if self.tau <= 0:
+            out[:] = np.arange(self._n, self._n + n, dtype=np.int32)
+            self._n += n
+            self._cur = self._n - 1
+            return out
+        for i in range(n):
+            if self._centroid is None:
+                self._cur = 0
+                self._centroid = emb[i].copy()
+            else:
+                c = self._centroid / (np.linalg.norm(self._centroid) + 1e-8)
+                if float(c @ emb[i]) >= self.tau:
+                    self._centroid += emb[i]
+                else:
+                    self._cur += 1
+                    self._centroid = emb[i].copy()
+            out[i] = self._cur
+        self._n += n
+        return out
 
 
 def _segment(emb: np.ndarray, tau: float) -> np.ndarray:

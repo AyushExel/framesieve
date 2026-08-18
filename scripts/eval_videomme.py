@@ -35,7 +35,7 @@ from framesieve.benchmarks.videomme import (  # noqa: E402
 )
 from framesieve.encoders import SiglipEncoder  # noqa: E402
 from framesieve.fetch import FrameFetcher  # noqa: E402
-from framesieve.index import FrameIndex  # noqa: E402
+from framesieve.indexing import FrameIndex  # noqa: E402
 from framesieve.search import select_candidates  # noqa: E402
 from framesieve.vlm import QwenMultiFrameQA, QwenYesNoScorer  # noqa: E402
 

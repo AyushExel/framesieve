@@ -57,13 +57,23 @@ class FrameFetcher:
         return np.frombuffer(p.stdout[:need], dtype=np.uint8).reshape(self.h, self.w, 3)
 
     def fetch(self, timestamps: Sequence[float]) -> tuple[np.ndarray, np.ndarray]:
-        """Return (kept_timestamps, frames). Frames that fail to decode are dropped."""
+        """Return (kept_timestamps, frames). Frames that fail to decode are dropped.
+
+        A few drops are normal near the end of a file; every frame failing is a
+        different animal -- a truncated or corrupt source -- and returning an
+        empty result would read as "nothing matched", so that case raises.
+        """
         ts = list(timestamps)
+        if not ts:
+            return np.zeros(0, np.float32), np.zeros((0, self.h, self.w, 3), np.uint8)
         with ThreadPoolExecutor(max_workers=self.workers) as ex:
             out = list(ex.map(self._one, ts))
         keep = [(t, f) for t, f in zip(ts, out) if f is not None]
         if not keep:
-            return np.zeros(0, np.float32), np.zeros((0, self.h, self.w, 3), np.uint8)
+            raise RuntimeError(
+                f"none of {len(ts)} requested frames could be decoded from "
+                f"{self.path}; the file may be corrupt, truncated, or moved "
+                f"since it was indexed")
         return (np.array([k[0] for k in keep], dtype=np.float32),
                 np.stack([k[1] for k in keep]))
 

@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 import framesieve as fs  # noqa: E402
 from framesieve.api import Hit, SearchResults, VideoIndex, timecode  # noqa: E402
-from framesieve.index import FrameIndex, IndexStats  # noqa: E402
+from framesieve.indexing import FrameIndex, IndexStats  # noqa: E402
 
 DEMO = os.path.join(os.path.dirname(__file__), "..", "data", "demo_clip.mp4")
 
@@ -79,7 +79,8 @@ def test_video_index_exposes_shape_without_loading_a_model():
     assert v.duration == pytest.approx(100.0)
     assert v.times.shape == (100,)
     assert v.embeddings.shape == (100, 8)
-    # stored half, handed back as float32 so arithmetic on it behaves
+    # float32 throughout since 0.2.0; the old fp16 round-trip cost more time
+    # than the matmul it fed
     assert v.embeddings.dtype == np.float32
     assert "VideoIndex" in repr(v)
 
@@ -266,7 +267,7 @@ def test_importing_framesieve_does_not_pull_in_lance_or_lancedb():
 import sys
 sys.path.insert(0, {src!r})
 import numpy as np, framesieve as fs
-from framesieve.index import FrameIndex, IndexStats
+from framesieve.indexing import FrameIndex, IndexStats
 st = IndexStats(video="v.mp4", duration_s=4, target_fps=1, n_frames=4,
                 n_encoded=4, n_segments=1, encoder="t", encoder_revision="0",
                 embed_dim=4, pixel_gate_tau=0, segment_tau=0,
@@ -550,3 +551,167 @@ def test_adding_a_legacy_index_to_a_collection_says_how_to_convert(tmp_path):
     lib = Collection(str(tmp_path / "c.lancedb"))
     with pytest.raises(ValueError, match="convert_indexes"):
         lib.add_index(str(stale))
+
+
+# --- regressions from the launch review ---------------------------------------
+
+
+def test_load_uses_the_encoder_the_index_records(tmp_path):
+    """Loading a sidecar by path must encode queries with the encoder that
+    BUILT it. Trusting the caller's default here returned plausible nonsense
+    for any same-dimension encoder and a shape error for the rest."""
+    v = _fake_index()
+    v._index.stats.encoder = "siglip2-so400m-384"
+    p = v.save(str(tmp_path / "so400m.lance"))
+    back = fs.load(p, video="fake.mp4")
+    assert back._encoder_name == "siglip2-so400m-384"
+
+
+def test_load_tolerates_stats_written_by_a_newer_version(tmp_path):
+    import json
+
+    v = _fake_index()
+    p = v.save(str(tmp_path / "x.lance"))
+    meta = os.path.join(p, "framesieve.json")
+    with open(meta) as f:
+        side = json.load(f)
+    side["stats"]["a_field_from_the_future"] = 7
+    with open(meta, "w") as f:
+        json.dump(side, f)
+    back = fs.load(p, video="fake.mp4")
+    assert len(back) == len(v)
+
+
+def test_an_interrupted_index_write_says_delete_and_rebuild(tmp_path):
+    """save() writes the dataset and then the json; a Ctrl-C in between leaves
+    a directory that looks like an index and can never load. The error has to
+    say what happened and what to do, not raise a bare FileNotFoundError."""
+    v = _fake_index()
+    p = v.save(str(tmp_path / "x.lance"))
+    os.remove(os.path.join(p, "framesieve.json"))
+    with pytest.raises(FileNotFoundError, match="rebuild"):
+        fs.load(p, video="fake.mp4")
+
+
+def test_save_refuses_to_overwrite_a_frame_store(tmp_path):
+    """One innocent v.save() used to replace gigabytes of stored JPEGs with an
+    11 MB embeddings table, silently. Exporting to a DIFFERENT path stays
+    legal; overwriting the store does not."""
+    class _StubStore:
+        path = str(tmp_path / "store.lance")
+
+    fi = _fake_index()._index
+    v = VideoIndex(fi, video="fake.mp4", path=_StubStore.path,
+                   store=_StubStore())
+    with pytest.raises(ValueError, match="destroy"):
+        v.save()
+    with pytest.raises(ValueError, match="destroy"):
+        v.save(_StubStore.path)
+    exported = v.save(str(tmp_path / "embeddings_only.lance"))
+    assert os.path.exists(exported)
+    assert v.path == _StubStore.path, "an export must not rebind the identity"
+
+
+def test_to_dicts_carries_source_and_text():
+    """--json output lost exactly the fields that distinguish a speech hit
+    from a visual one."""
+    hits = [Hit(1.0, 0.5, source="speech", text="about pricing")]
+    r = SearchResults("q", hits, {}, 1, "topk", False)
+    (d,) = r.to_dicts()
+    assert d["source"] == "speech"
+    assert d["text"] == "about pricing"
+
+
+def test_an_empty_timed_text_index_saves_loads_and_stays_invisible(tmp_path):
+    """A silent audio track or text-free footage is a normal outcome that
+    arrives at the END of an expensive pass: it has to save (pyarrow rejects
+    zero-size fixed lists), load, and not claim to be searchable."""
+    from framesieve.timedtext import TimedTextIndex
+
+    p = str(tmp_path / "empty.speech.lance")
+    TimedTextIndex([], np.zeros((0, 0), np.float32), "speech").save(p)
+    back = TimedTextIndex.load(p)
+    assert len(back) == 0
+
+    v = _fake_index()
+    v._tt["speech"] = back
+    assert v.sources == ["visual"], "an empty transcript is not searchable"
+
+
+def test_open_rejects_typos_and_names_the_options_it_could_not_apply(tmp_path):
+    """kwargs on an existing index used to vanish silently; example 05 relied
+    on `fs.open(v, audio=True)` doing something."""
+    vid = str(tmp_path / "v.mp4")
+    _fake_index().save(fs.index_path_for(vid))
+
+    with pytest.raises(TypeError, match="audoi"):
+        fs.open(vid, audoi=True)
+    with pytest.warns(UserWarning, match="rebuild=True"):
+        fs.open(vid, store=True)
+    # audio=True on a video with no audio track degrades to a note, not a crash
+    v = fs.open(vid, audio=True)
+    assert v.speech is None
+
+
+@needs_lancedb
+def test_collection_filters_survive_an_apostrophe(tmp_path):
+    from framesieve.collection import Collection
+
+    lib = Collection(str(tmp_path / "c.lancedb"))
+    rng = np.random.default_rng(0)
+    e = rng.normal(size=(10, 8)).astype(np.float32)
+    e /= np.linalg.norm(e, axis=1, keepdims=True)
+    name = "tim's dashcam.mp4"
+    lib._append(name, np.arange(10, dtype=np.float32), e)
+    hits = lib.search(e[0], k=3, video=name, exact=True, min_gap_s=0)
+    assert len(hits) == 3
+    assert all(h.video == name for h in hits)
+
+
+@needs_lancedb
+def test_collection_refuses_duplicates_and_mixed_dimensions(tmp_path):
+    from framesieve.collection import Collection, DuplicateVideo
+
+    lib = Collection(str(tmp_path / "c.lancedb"))
+    e8 = np.eye(4, 8, dtype=np.float32)
+    lib._append("a.mp4", np.arange(4, dtype=np.float32), e8)
+    with pytest.raises(DuplicateVideo):
+        lib._append("a.mp4", np.arange(4, dtype=np.float32), e8)
+    with pytest.raises(ValueError, match="dimensional"):
+        lib._append("b.mp4", np.arange(4, dtype=np.float32),
+                    np.eye(4, 16, dtype=np.float32))
+
+
+@needs_lancedb
+def test_bulk_load_skips_sidecars_that_are_not_frame_indexes(tmp_path):
+    """`add_indexes("*.lance")` is the documented pattern and speech/OCR
+    sidecars match it too; they used to crash the bulk load partway through.
+    Re-running a load must also skip what is already in."""
+    from framesieve.collection import Collection
+    from framesieve.timedtext import TimedText, TimedTextIndex
+
+    idx_dir = tmp_path / "idx"
+    idx_dir.mkdir()
+    v = _fake_index()
+    v.save(str(idx_dir / "a.framesieve-test-1fps.lance"))
+    TimedTextIndex([TimedText(0, 1, "hi")], np.eye(1, 4, dtype=np.float32),
+                   "speech").save(str(idx_dir / "a.speech.lance"))
+
+    lib = Collection(str(tmp_path / "c.lancedb"), encoder="test")
+    assert lib.add_indexes(str(idx_dir / "*.lance"), verbose=False) == 100
+    assert lib.videos() == ["fake.mp4"]
+    # a re-run adds nothing and does not raise
+    assert lib.add_indexes(str(idx_dir / "*.lance"), verbose=False) == 0
+
+
+@needs_lancedb
+def test_collection_refuses_an_index_from_a_different_encoder(tmp_path):
+    """Same dimension, different encoder silently corrupts the ranking, so the
+    mismatch has to be caught by name before the vectors mix."""
+    from framesieve.collection import Collection
+
+    v = _fake_index()
+    p = v.save(str(tmp_path / "a.framesieve-test-1fps.lance"))
+    lib = Collection(str(tmp_path / "c.lancedb"))   # default encoder
+    with pytest.raises(ValueError, match="encoder"):
+        lib.add_index(p)

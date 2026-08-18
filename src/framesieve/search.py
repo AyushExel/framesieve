@@ -33,7 +33,7 @@ import numpy as np
 
 if TYPE_CHECKING:                      # pragma: no cover
     from .encoders import SiglipEncoder
-from .index import FrameIndex
+from .indexing import FrameIndex
 
 STRATEGIES = ("uniform", "topk", "nms", "segment", "segment_adaptive")
 

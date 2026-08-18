@@ -23,7 +23,7 @@ from framesieve.evaluate import (  # noqa: E402
     events_from_scores,
     frame_recall,
 )
-from framesieve.index import FrameIndex, IndexStats, _segment  # noqa: E402
+from framesieve.indexing import FrameIndex, IndexStats, _segment  # noqa: E402
 from framesieve.search import STRATEGIES, select_candidates  # noqa: E402
 
 
@@ -302,3 +302,40 @@ def test_sweep_k_finds_the_planted_optimum_under_a_head_metric():
     assert 4 <= r["best_k"] <= 16, r["best_k"]
     assert r["by_k"][r["best_k"]]["score"] > r["by_k"][1]["score"]
     assert r["by_k"][r["best_k"]]["score"] > r["by_k"][32]["score"]
+
+
+# --- regressions from the launch review ---------------------------------------
+
+
+def test_streaming_segmenter_matches_the_batch_segmentation():
+    """The frame store writes batches to disk as they stream past, so its
+    segmentation is computed incrementally. Any drift from `_segment` would
+    silently change which frames `strategy="segment"` and the OCR pass pick."""
+    from framesieve.indexing import StreamingSegmenter
+
+    rng = np.random.default_rng(3)
+    emb = rng.normal(size=(500, 16)).astype(np.float32)
+    emb /= np.linalg.norm(emb, axis=1, keepdims=True)
+    # a few plateaus so tau actually merges something
+    for s in (50, 200, 400):
+        emb[s:s + 30] = emb[s]
+
+    for tau in (0.0, 0.3, 0.9, 0.99):
+        want = _segment(emb, tau)
+        seg = StreamingSegmenter(tau)
+        got = np.concatenate([seg.feed(emb[i:i + 64])
+                              for i in range(0, len(emb), 64)])
+        assert np.array_equal(got, want), tau
+        assert seg.n_segments == (int(want.max()) + 1 if len(want) else 0), tau
+
+
+def test_gpu_decode_picks_the_decoder_for_the_actual_codec():
+    """gpu=True used to hardcode h264_cuvid and fail on HEVC/VP9/AV1 with
+    'no frames decoded', with the probed codec in hand two lines earlier."""
+    from framesieve.frames import _cuvid_decoder
+
+    assert _cuvid_decoder("h264") == "h264_cuvid"
+    assert _cuvid_decoder("hevc") == "hevc_cuvid"
+    assert _cuvid_decoder("av1") == "av1_cuvid"
+    with pytest.raises(ValueError, match="gpu_decode"):
+        _cuvid_decoder("theora")

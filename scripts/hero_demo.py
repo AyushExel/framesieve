@@ -24,7 +24,7 @@ from framesieve.evaluate import evaluate_selection, events_from_scores  # noqa: 
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _indexio import read_index  # noqa: E402
-from framesieve.index import FrameIndex  # noqa: E402
+from framesieve.indexing import FrameIndex  # noqa: E402
 from framesieve.search import select_candidates  # noqa: E402
 
 

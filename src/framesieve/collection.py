@@ -64,6 +64,16 @@ __all__ = ["Collection", "CollectionHit"]
 TABLE = "frames"
 
 
+class DuplicateVideo(ValueError):
+    """The video is already in the collection under this name."""
+
+
+def _sql_str(s: str) -> str:
+    """A string literal for a lancedb filter. Single quotes double, per SQL --
+    without this a video called `Tim's dashcam.mp4` breaks every filter."""
+    return "'" + s.replace("'", "''") + "'"
+
+
 def _require_lancedb():
     try:
         import lancedb
@@ -155,6 +165,20 @@ class Collection:
 
         emb = np.ascontiguousarray(emb.astype(np.float32))
         dim = emb.shape[1]
+        if self._tbl is not None:
+            have = self._tbl.schema.field("vector").type.list_size
+            if have != dim:
+                # mixing dimensions would crash; mixing ENCODERS of the same
+                # dimension would silently corrupt the ranking, and add_index
+                # checks for that by name before it gets here
+                raise ValueError(
+                    f"this collection holds {have}-dimensional vectors and "
+                    f"{video} brings {dim}-dimensional ones; a collection must "
+                    f"be built with one encoder throughout")
+            if self._tbl.count_rows(f"video = {_sql_str(video)}"):
+                raise DuplicateVideo(
+                    f"{video} is already in the collection; pass a different "
+                    f"name via video= to add it twice deliberately")
         tbl = pa.table({
             "video": pa.array([video] * len(ts)),
             "ts": pa.array(np.asarray(ts, dtype=np.float32)),
@@ -167,6 +191,22 @@ class Collection:
             self._tbl.add(tbl)
         return len(ts)
 
+    @staticmethod
+    def _sidecar_kind(index_path: str) -> str:
+        """"frames" for a frame index, else what the sidecar says it is.
+
+        Speech and OCR sidecars are also `.lance` and match the same globs; the
+        two are told apart by their metadata, not their names.
+        """
+        import json as _json
+
+        meta = os.path.join(index_path, "framesieve.json")
+        if not os.path.exists(meta):
+            return "unknown"
+        with open(meta) as f:
+            side = _json.load(f)
+        return "frames" if "stats" in side else side.get("kind", "unknown")
+
     def add_index(self, index_path: str, video: str | None = None) -> int:
         """Append a sidecar that already exists, without re-encoding anything.
 
@@ -174,23 +214,54 @@ class Collection:
         is per-video, so it parallelises across machines and the results merge
         here.
         """
-        from .index import FrameIndex
+        from .indexing import FrameIndex
 
         if index_path.endswith(".npz"):
             raise ValueError(
                 f"{index_path} is the pre-Lance index format, which the library "
                 f"no longer reads. Convert it first:\n"
                 f"  python scripts/convert_indexes.py '<dir>/*.npz'")
+        kind = self._sidecar_kind(index_path)
+        if kind != "frames":
+            raise ValueError(
+                f"{index_path} is a {kind} sidecar (speech or on-screen text), "
+                f"not a frame index; it belongs beside its video and cannot "
+                f"join a collection")
         idx = FrameIndex.load(index_path)
+        enc = idx.stats.encoder
+        if enc and enc != self._encoder_name:
+            raise ValueError(
+                f"{index_path} was built with encoder {enc!r}, but this "
+                f"collection encodes queries with {self._encoder_name!r}; "
+                f"mixing them silently corrupts the ranking. Open it as "
+                f"Collection(uri, encoder={enc!r}) instead.")
         name = video or idx.stats.video or index_path
         return self._append(name, idx.ts, idx.emb)
 
     def add_indexes(self, pattern: str, verbose: bool = True) -> int:
-        """Append every sidecar matching a glob. Returns frames added."""
+        """Append every frame sidecar matching a glob. Returns frames added.
+
+        Speech and OCR sidecars that match the glob are skipped with a note,
+        because `*.lance` matches them too; a video already in the collection is
+        skipped the same way, so a bulk load can be re-run. An encoder or
+        dimension mismatch still raises -- that is a configuration error, not a
+        file to skip.
+        """
         paths = sorted(glob.glob(pattern))
         total = 0
         for i, p in enumerate(paths, 1):
-            total += self.add_index(p)
+            if self._sidecar_kind(p) != "frames":
+                if verbose:
+                    print(f"  skipping {os.path.basename(p)}: "
+                          f"speech/OCR sidecar, not a frame index", flush=True)
+                continue
+            try:
+                total += self.add_index(p)
+            except DuplicateVideo:
+                if verbose:
+                    print(f"  skipping {os.path.basename(p)}: already in the "
+                          f"collection", flush=True)
+                continue
             if verbose and (i % 25 == 0 or i == len(paths)):
                 print(f"  {i}/{len(paths)} videos, {total:,} frames", flush=True)
         return total
@@ -305,7 +376,7 @@ class Collection:
         s = (self.table.search(q, vector_column_name="vector")
              .metric("cosine").limit(want))
         if video is not None:
-            s = s.where(f"video = '{video}'")
+            s = s.where(f"video = {_sql_str(video)}")
         if exact:
             s = s.bypass_vector_index()
         else:

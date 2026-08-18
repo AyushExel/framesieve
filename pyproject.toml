@@ -69,11 +69,13 @@ framesieve = "framesieve.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/framesieve"]
-# figures.py draws the write-ups and is the one module that needs matplotlib,
-# which is not a dependency. It stays in the repo and the sdist for anyone
-# reproducing the posts, and out of the wheel so `pip install framesieve` does
-# not ship a module that cannot import.
-exclude = ["src/framesieve/figures.py"]
+# Research code stays in the repo and the sdist for anyone reproducing the
+# posts, and out of the wheel: figures.py needs matplotlib and benchmarks/
+# needs pandas, neither of which is a dependency, and evaluate.py exists for
+# the eval scripts rather than for users. `pip install framesieve` should not
+# ship modules that cannot import.
+exclude = ["src/framesieve/figures.py", "src/framesieve/evaluate.py",
+           "src/framesieve/benchmarks"]
 
 [tool.hatch.build.targets.sdist]
 include = ["src/framesieve", "tests", "README.md", "LICENSE", "docs/*.md"]

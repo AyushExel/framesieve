@@ -23,9 +23,7 @@ import torch.nn.functional as F
 # Pinned revisions, resolved 2026-08-15. Update deliberately, never implicitly.
 SIGLIP_MODELS: dict[str, dict] = {
     "siglip-base-224": dict(
-        repo="google/siglip-base-patch16-224",
-        revision="7fd15f0689c7c8f9b4d0e6e0b1e4dcb2b3b8e1a0"[:12] or None,
-        size=224),
+        repo="google/siglip-base-patch16-224", revision="7fd15f0689c7", size=224),
     "siglip2-base-224": dict(
         repo="google/siglip2-base-patch16-224", revision="75de2d55ec2d", size=224),
     "siglip2-base-384": dict(
@@ -35,8 +33,6 @@ SIGLIP_MODELS: dict[str, dict] = {
     "siglip2-so400m-384": dict(
         repo="google/siglip2-so400m-patch14-384", revision="e8e487298228", size=384),
 }
-# the first entry's revision placeholder is fixed up at import time below
-SIGLIP_MODELS["siglip-base-224"]["revision"] = "7fd15f0689c7"
 
 
 def pick_device(device: str | None = None) -> str:

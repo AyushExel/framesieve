@@ -41,7 +41,7 @@ from framesieve.benchmarks.momentseeker import (  # noqa: E402
     map_at_5_matched,
     recall_at_k,
 )
-from framesieve.index import FrameIndex  # noqa: E402
+from framesieve.indexing import FrameIndex  # noqa: E402
 
 
 def chunks_of(duration_s: float, chunk_s: float) -> np.ndarray:

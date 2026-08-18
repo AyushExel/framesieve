@@ -18,20 +18,15 @@ cheap one per frame.
 `import framesieve` deliberately imports nothing heavy -- about 50 ms, and no
 torch. Building an index needs torch; READING one does not, so you can query and
 inspect indexes on a machine with no GPU stack at all. The submodules
-(`framesieve.index`, `.search`, `.encoders`, `.vlm`, `.pooling`) are the lower
-level and stay importable.
+(`framesieve.indexing`, `.search`, `.encoders`, `.vlm`, `.pooling`) are the
+lower level and stay importable. (The indexing module is deliberately NOT named
+`index`: a submodule by that name fights the `index()` function for the
+attribute, and `import framesieve.index as m` used to hand back the function.)
 """
 
 from __future__ import annotations
 
 __version__ = "0.2.0"
-
-# These come last on purpose. `from .api import index` must run AFTER the import
-# of .api itself, because importing .api registers the `framesieve.index`
-# SUBMODULE as an attribute of this package -- and a submodule named `index`
-# would otherwise shadow the `index()` function, so `framesieve.index(video)`
-# would raise "module object is not callable". Binding explicitly here settles
-# it in favour of the function, which is the one the API documents.
 try:
     from .api import (  # noqa: E402
         DEFAULT_ENCODER,

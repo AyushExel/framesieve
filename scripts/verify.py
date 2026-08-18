@@ -42,7 +42,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _indexio import read_index  # noqa: E402
 from framesieve.fetch import FrameFetcher  # noqa: E402
 from framesieve.frames import FrameStream  # noqa: E402
-from framesieve.index import FrameIndex  # noqa: E402
+from framesieve.indexing import FrameIndex  # noqa: E402
 from framesieve.search import select_candidates  # noqa: E402
 from framesieve.vlm import QWEN_MODELS  # noqa: E402
 
@@ -171,7 +171,7 @@ def check_vlm_lookup(gt_path: str, video: str, n: int = 12) -> None:
 
 
 def check_determinism(video: str) -> None:
-    from framesieve.index import build_index
+    from framesieve.indexing import build_index
     enc = SiglipEncoder("siglip2-base-224")
     a = build_index(video, enc, target_fps=1.0, duration_s=60, segment_tau=0.90,
                     seed=0, verbose=False)

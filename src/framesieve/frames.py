@@ -25,6 +25,24 @@ import numpy as np
 
 _PTS_RE = re.compile(rb"pts_time:\s*([0-9.]+)")
 
+# NVDEC decoders by source codec. gpu=True used to assume h264 and fail with
+# "no frames decoded" on anything else, even though the probe had the codec in
+# hand two lines earlier.
+_CUVID = {"h264": "h264_cuvid", "hevc": "hevc_cuvid", "vp8": "vp8_cuvid",
+          "vp9": "vp9_cuvid", "av1": "av1_cuvid", "mpeg2video": "mpeg2_cuvid",
+          "mpeg4": "mpeg4_cuvid", "mjpeg": "mjpeg_cuvid", "vc1": "vc1_cuvid"}
+
+
+def _cuvid_decoder(codec: str) -> str:
+    dec = _CUVID.get(codec)
+    if dec is None:
+        raise ValueError(
+            f"gpu decode has no NVDEC decoder for codec {codec!r} "
+            f"(supported: {', '.join(sorted(_CUVID))}). "
+            f"Drop gpu_decode/--gpu-decode to use the CPU decoder, which "
+            f"handles everything ffmpeg does.")
+    return dec
+
 
 @dataclass
 class SourceInfo:
@@ -107,7 +125,7 @@ class FrameStream:
             cmd += ["-ss", f"{self.start_s}"]
         if self.gpu:
             cmd += ["-hwaccel", "cuda", "-hwaccel_output_format", "cuda",
-                    "-c:v", "h264_cuvid"]
+                    "-c:v", _cuvid_decoder(self.info.codec)]
         else:
             cmd += ["-threads", str(self.threads)]
         cmd += ["-i", self.path]

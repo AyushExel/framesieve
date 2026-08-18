@@ -34,7 +34,7 @@ import numpy as np
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 from framesieve.benchmarks.momentseeker import gt_chunk_mask, load_queries  # noqa: E402
-from framesieve.index import FrameIndex  # noqa: E402
+from framesieve.indexing import FrameIndex  # noqa: E402
 
 
 def chunks_of(duration_s: float, chunk_s: float) -> np.ndarray:

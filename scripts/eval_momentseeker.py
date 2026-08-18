@@ -41,7 +41,7 @@ from framesieve.benchmarks.momentseeker import (  # noqa: E402
     score_chunks,
 )
 from framesieve.encoders import CLIP_MODELS, ClipEncoder, SiglipEncoder  # noqa: E402
-from framesieve.index import FrameIndex, build_index  # noqa: E402
+from framesieve.indexing import FrameIndex, build_index  # noqa: E402
 
 
 def bootstrap(vals: np.ndarray, n_boot: int = 2000, seed: int = 0):
